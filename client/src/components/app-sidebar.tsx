@@ -4,14 +4,15 @@ import {
   Server,
   FileText,
   Settings,
-  Shield,
   Building2,
   MapPin,
   KeyRound,
   Key,
   Code,
   Webhook,
+  Shield,
 } from "lucide-react";
+import logoImage from "@assets/ShotgunNinjaVaulticon_1770412982737.png";
 import { useLocation, Link } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -78,9 +79,11 @@ export function AppSidebar({ role }: AppSidebarProps) {
       <SidebarHeader className="p-4">
         <Link href="/">
           <div className="flex items-center gap-2 cursor-pointer">
-            <div className="w-8 h-8 rounded-md bg-primary flex items-center justify-center">
-              <Shield className="w-4 h-4 text-primary-foreground" />
-            </div>
+            <img
+              src={logoImage}
+              alt="Shotgun Ninja Vault"
+              className="w-8 h-8 rounded-md object-cover"
+            />
             <div>
               <h2 className="text-sm font-semibold tracking-tight leading-none">
                 Shotgun Ninja

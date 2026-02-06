@@ -2,6 +2,8 @@ import { Shield, FileText, Users, Lock, ArrowRight, Database } from "lucide-reac
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { ThemeToggle } from "@/components/theme-toggle";
+import heroImage from "@assets/Shotgun_ninja_vault_hero_1770412982737.png";
+import logoImage from "@assets/ShotgunNinjaVaulticon_1770412982737.png";
 
 const features = [
   {
@@ -36,9 +38,11 @@ export default function LandingPage() {
       <header className="sticky top-0 z-50 border-b bg-background/80 backdrop-blur-md">
         <div className="max-w-6xl mx-auto flex items-center justify-between gap-4 px-6 py-3">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-md bg-primary flex items-center justify-center">
-              <Shield className="w-4 h-4 text-primary-foreground" />
-            </div>
+            <img
+              src={logoImage}
+              alt="Shotgun Ninja Vault"
+              className="w-8 h-8 rounded-md object-cover"
+            />
             <span className="font-semibold text-sm tracking-tight">
               Shotgun Ninja Vault
             </span>
@@ -56,37 +60,44 @@ export default function LandingPage() {
       </header>
 
       <main>
-        <section className="py-24 px-6">
-          <div className="max-w-3xl mx-auto text-center">
-            <div className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary mb-6">
-              <Shield className="w-3 h-3" />
-              Secure Evidence Management
-            </div>
-            <h1 className="text-4xl sm:text-5xl font-bold tracking-tight mb-4 leading-tight">
-              Your digital evidence,
-              <br />
-              <span className="text-primary">locked down tight.</span>
-            </h1>
-            <p className="text-lg text-muted-foreground max-w-xl mx-auto mb-8">
-              A multi-tenant vault for MSPs, IT teams, and consultants to store,
-              tag, and search evidence files linked to clients, sites, and
-              assets.
-            </p>
-            <div className="flex flex-wrap items-center justify-center gap-3">
-              <Button size="lg" asChild data-testid="button-get-started">
-                <a href="/api/login">
-                  Get Started
-                  <ArrowRight className="w-4 h-4 ml-1" />
-                </a>
-              </Button>
-              <Button size="lg" variant="outline" asChild>
-                <a href="#features">Learn More</a>
-              </Button>
-            </div>
-            <div className="flex items-center justify-center gap-4 mt-6 text-xs text-muted-foreground">
-              <span>Free plan available</span>
-              <span className="w-1 h-1 rounded-full bg-muted-foreground/50" />
-              <span>No credit card required</span>
+        <section className="relative overflow-hidden">
+          <div
+            className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+            style={{ backgroundImage: `url(${heroImage})` }}
+          />
+          <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/60 to-black/80" />
+          <div className="relative z-10 py-28 sm:py-36 px-6">
+            <div className="max-w-3xl mx-auto text-center">
+              <div className="inline-flex items-center gap-1.5 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 px-3 py-1 text-xs font-medium text-white/90 mb-6">
+                <Shield className="w-3 h-3" />
+                Secure Evidence Management
+              </div>
+              <h1 className="text-4xl sm:text-5xl font-bold tracking-tight mb-4 leading-tight text-white">
+                Your digital evidence,
+                <br />
+                <span className="text-blue-400">locked down tight.</span>
+              </h1>
+              <p className="text-lg text-white/70 max-w-xl mx-auto mb-8">
+                A multi-tenant vault for MSPs, IT teams, and consultants to store,
+                tag, and search evidence files linked to clients, sites, and
+                assets.
+              </p>
+              <div className="flex flex-wrap items-center justify-center gap-3">
+                <Button size="lg" asChild data-testid="button-get-started">
+                  <a href="/api/login">
+                    Get Started
+                    <ArrowRight className="w-4 h-4 ml-1" />
+                  </a>
+                </Button>
+                <Button size="lg" variant="outline" asChild className="backdrop-blur-sm bg-white/5 border-white/20 text-white">
+                  <a href="#features">Learn More</a>
+                </Button>
+              </div>
+              <div className="flex items-center justify-center gap-4 mt-6 text-xs text-white/50">
+                <span>Free plan available</span>
+                <span className="w-1 h-1 rounded-full bg-white/30" />
+                <span>No credit card required</span>
+              </div>
             </div>
           </div>
         </section>
