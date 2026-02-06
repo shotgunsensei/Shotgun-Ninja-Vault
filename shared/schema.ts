@@ -111,14 +111,23 @@ export const clientUserAssignments = pgTable(
     id: varchar("id")
       .primaryKey()
       .default(sql`gen_random_uuid()`),
+    tenantId: varchar("tenant_id")
+      .notNull()
+      .references(() => tenants.id, { onDelete: "cascade" }),
     clientId: varchar("client_id")
       .notNull()
       .references(() => clients.id, { onDelete: "cascade" }),
     userId: varchar("user_id")
       .notNull()
       .references(() => usersTable.id, { onDelete: "cascade" }),
+    canUpload: boolean("can_upload").notNull().default(false),
+    createdAt: timestamp("created_at").defaultNow(),
   },
-  (table) => [index("idx_assignment_client").on(table.clientId)]
+  (table) => [
+    index("idx_assignment_client").on(table.clientId),
+    index("idx_assignment_user").on(table.userId),
+    index("idx_assignment_tenant").on(table.tenantId),
+  ]
 );
 
 export const clientUserAssignmentsRelations = relations(
@@ -343,6 +352,10 @@ export const insertAuditLogSchema = createInsertSchema(auditLogs).omit({
   id: true,
   createdAt: true,
 });
+export const insertClientUserAccessSchema = createInsertSchema(clientUserAssignments).omit({
+  id: true,
+  createdAt: true,
+});
 
 export type Tenant = typeof tenants.$inferSelect;
 export type InsertTenant = z.infer<typeof insertTenantSchema>;
@@ -358,4 +371,6 @@ export type InsertEvidence = z.infer<typeof insertEvidenceSchema>;
 export type Tag = typeof tags.$inferSelect;
 export type InsertTag = z.infer<typeof insertTagSchema>;
 export type AuditLog = typeof auditLogs.$inferSelect;
+export type ClientUserAccess = typeof clientUserAssignments.$inferSelect;
+export type InsertClientUserAccess = z.infer<typeof insertClientUserAccessSchema>;
 export type MemberRole = "OWNER" | "ADMIN" | "TECH" | "CLIENT";

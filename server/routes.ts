@@ -97,7 +97,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/dashboard", isAuthenticated, requireTenant(), async (req: any, res) => {
+  app.get("/api/dashboard", isAuthenticated, requireTenant(), requireRole("OWNER", "ADMIN", "TECH"), async (req: any, res) => {
     try {
       const stats = await storage.getDashboardStats(req.tenantCtx.tenantId);
       res.json(stats);
@@ -174,7 +174,7 @@ export async function registerRoutes(
     }
   );
 
-  app.get("/api/sites", isAuthenticated, requireTenant(), async (req: any, res) => {
+  app.get("/api/sites", isAuthenticated, requireRole("OWNER", "ADMIN", "TECH"), async (req: any, res) => {
     try {
       const sites = await storage.getSitesByTenant(req.tenantCtx.tenantId);
       res.json(sites);
@@ -217,7 +217,7 @@ export async function registerRoutes(
     }
   );
 
-  app.get("/api/assets", isAuthenticated, requireTenant(), async (req: any, res) => {
+  app.get("/api/assets", isAuthenticated, requireRole("OWNER", "ADMIN", "TECH"), async (req: any, res) => {
     try {
       const assets = await storage.getAssetsByTenant(req.tenantCtx.tenantId);
       res.json(assets);
@@ -226,7 +226,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/assets/:id", isAuthenticated, requireTenant(), async (req: any, res) => {
+  app.get("/api/assets/:id", isAuthenticated, requireRole("OWNER", "ADMIN", "TECH"), async (req: any, res) => {
     try {
       const asset = await storage.getAssetById(req.tenantCtx.tenantId, req.params.id);
       if (!asset) return res.status(404).json({ message: "Asset not found" });
@@ -348,11 +348,22 @@ export async function registerRoutes(
   app.post(
     "/api/evidence/upload",
     isAuthenticated,
-    requireRole("OWNER", "ADMIN", "TECH"),
+    requireTenant(),
     upload.single("file"),
     async (req: any, res) => {
       try {
-        const { tenantId, userId } = req.tenantCtx;
+        const { tenantId, userId, role } = req.tenantCtx;
+
+        if (role === "CLIENT") {
+          const clientId = req.body.clientId;
+          if (!clientId) {
+            return res.status(400).json({ message: "Client is required for CLIENT users" });
+          }
+          const canUpload = await storage.canUserUploadForClient(userId, clientId);
+          if (!canUpload) {
+            return res.status(403).json({ message: "You do not have upload permission for this client" });
+          }
+        }
 
         const tenant = await storage.getTenantById(tenantId);
         const stats = await storage.getDashboardStats(tenantId);
@@ -441,9 +452,13 @@ export async function registerRoutes(
     requireRole("OWNER", "ADMIN", "TECH"),
     async (req: any, res) => {
       try {
-        const { tenantId, userId } = req.tenantCtx;
+        const { tenantId, userId, role } = req.tenantCtx;
         const item = await storage.getEvidenceById(tenantId, req.params.id);
         if (!item) return res.status(404).json({ message: "Evidence not found" });
+
+        if (role === "TECH" && item.uploadedById !== userId) {
+          return res.status(403).json({ message: "You can only delete evidence you uploaded" });
+        }
 
         await storage.deleteEvidence(tenantId, req.params.id);
         await fileStorage.delete(item.filePath);
@@ -554,6 +569,104 @@ export async function registerRoutes(
     try {
       const logs = await storage.getAuditLogsByTenant(req.tenantCtx.tenantId);
       res.json(logs);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/client-access", isAuthenticated, requireRole("OWNER", "ADMIN"), async (req: any, res) => {
+    try {
+      const access = await storage.getClientAccessByTenant(req.tenantCtx.tenantId);
+      res.json(access);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/client-access", isAuthenticated, requireRole("OWNER", "ADMIN"), async (req: any, res) => {
+    try {
+      const { tenantId, userId } = req.tenantCtx;
+      const schema = z.object({
+        userId: z.string().min(1),
+        clientId: z.string().min(1),
+        canUpload: z.boolean().optional().default(false),
+      });
+
+      const parsed = schema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: parsed.error.errors[0]?.message || "Invalid input" });
+      }
+
+      const { userId: targetUserId, clientId, canUpload } = parsed.data;
+
+      const memberRole = await storage.getMemberRole(tenantId, targetUserId);
+      if (memberRole !== "CLIENT") {
+        return res.status(400).json({ message: "User must have CLIENT role to be assigned client access" });
+      }
+
+      const existing = await storage.getClientIdsForUser(targetUserId);
+      if (existing.includes(clientId)) {
+        return res.status(400).json({ message: "User already has access to this client" });
+      }
+
+      const access = await storage.addClientAccess(tenantId, targetUserId, clientId, canUpload);
+
+      await storage.createAuditLog({
+        tenantId,
+        userId,
+        action: "grant_client_access",
+        entityType: "client_access",
+        entityId: access.id,
+        details: { targetUserId, clientId, canUpload },
+      });
+
+      res.json(access);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.patch("/api/client-access/:id", isAuthenticated, requireRole("OWNER", "ADMIN"), async (req: any, res) => {
+    try {
+      const { tenantId, userId } = req.tenantCtx;
+      const schema = z.object({ canUpload: z.boolean() });
+      const parsed = schema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: "Invalid input" });
+      }
+
+      await storage.updateClientAccessCanUpload(tenantId, req.params.id, parsed.data.canUpload);
+
+      await storage.createAuditLog({
+        tenantId,
+        userId,
+        action: "update_client_access",
+        entityType: "client_access",
+        entityId: req.params.id,
+        details: { canUpload: parsed.data.canUpload },
+      });
+
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.delete("/api/client-access/:id", isAuthenticated, requireRole("OWNER", "ADMIN"), async (req: any, res) => {
+    try {
+      const { tenantId, userId } = req.tenantCtx;
+
+      await storage.removeClientAccess(tenantId, req.params.id);
+
+      await storage.createAuditLog({
+        tenantId,
+        userId,
+        action: "revoke_client_access",
+        entityType: "client_access",
+        entityId: req.params.id,
+      });
+
+      res.json({ success: true });
     } catch (error: any) {
       res.status(500).json({ message: error.message });
     }

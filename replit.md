@@ -67,6 +67,17 @@ shared/
 - `SESSION_SECRET` - Session encryption key
 - `MAX_UPLOAD_MB` - Maximum file upload size in MB (default: 25)
 
+## CLIENT Portal Access Control
+- **ClientUserAccess** join table (`clientUserAssignments`): tenantId, clientId, userId, canUpload flag
+- CLIENT users only see assigned clients and their evidence (filtered server-side)
+- CLIENT cannot access Sites, Assets, Team, Audit, or Settings pages (routes hidden + server-enforced)
+- CLIENT cannot delete evidence; Delete button hidden in UI and blocked server-side
+- CLIENT upload requires `canUpload=true` permission on their client assignment
+- TECH can only delete own uploads (server-enforced)
+- ADMIN/OWNER manage client access assignments via `/client-access` admin page
+- Dashboard shows ClientPortalDashboard for CLIENT role (assigned clients + evidence)
+- `/api/dashboard` restricted to OWNER/ADMIN/TECH roles server-side
+
 ## Recent Changes
 - Initial build: Full schema, frontend, backend, auth integration
 - Added Zod validation on all POST routes using createInsertSchema
@@ -78,3 +89,6 @@ shared/
 - Enhanced audit logging with role change tracking and metadata
 - Added breadcrumb navigation and evidence preview modal
 - Evidence list page with search filters (client, date range, text search)
+- CLIENT portal: role-aware sidebar, conditional routing, client assignment management, portal dashboard
+- Server-side role restriction on /api/dashboard endpoint
+- Loading guards for role-dependent UI (dashboard, evidence detail)

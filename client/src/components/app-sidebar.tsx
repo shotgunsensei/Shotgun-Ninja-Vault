@@ -7,6 +7,7 @@ import {
   Shield,
   Building2,
   MapPin,
+  KeyRound,
 } from "lucide-react";
 import { useLocation, Link } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
@@ -31,24 +32,33 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { LogOut, ChevronUp } from "lucide-react";
+import type { MemberRole } from "@shared/schema";
 
-const mainNavItems = [
-  { title: "Dashboard", url: "/", icon: LayoutDashboard },
-  { title: "Clients", url: "/clients", icon: Users },
-  { title: "Sites", url: "/sites", icon: MapPin },
-  { title: "Assets", url: "/assets", icon: Server },
-  { title: "Evidence", url: "/evidence", icon: FileText },
-];
+interface AppSidebarProps {
+  role: MemberRole;
+}
 
-const adminNavItems = [
-  { title: "Team", url: "/team", icon: Building2 },
-  { title: "Audit Log", url: "/audit", icon: Shield },
-  { title: "Settings", url: "/settings", icon: Settings },
-];
-
-export function AppSidebar() {
+export function AppSidebar({ role }: AppSidebarProps) {
   const [location] = useLocation();
   const { user } = useAuth();
+
+  const isClient = role === "CLIENT";
+  const isAdminOrOwner = role === "OWNER" || role === "ADMIN";
+
+  const mainNavItems = [
+    { title: "Dashboard", url: "/", icon: LayoutDashboard, show: true },
+    { title: "Clients", url: "/clients", icon: Users, show: true },
+    { title: "Sites", url: "/sites", icon: MapPin, show: !isClient },
+    { title: "Assets", url: "/assets", icon: Server, show: !isClient },
+    { title: "Evidence", url: "/evidence", icon: FileText, show: true },
+  ].filter((item) => item.show);
+
+  const adminNavItems = [
+    { title: "Team", url: "/team", icon: Building2, show: isAdminOrOwner },
+    { title: "Client Access", url: "/client-access", icon: KeyRound, show: isAdminOrOwner },
+    { title: "Audit Log", url: "/audit", icon: Shield, show: isAdminOrOwner },
+    { title: "Settings", url: "/settings", icon: Settings, show: !isClient },
+  ].filter((item) => item.show);
 
   const initials = user
     ? `${(user.firstName || "")[0] || ""}${(user.lastName || "")[0] || ""}`
@@ -98,26 +108,28 @@ export function AppSidebar() {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
-        <SidebarGroup>
-          <SidebarGroupLabel>Administration</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {adminNavItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton
-                    asChild
-                    isActive={location.startsWith(item.url)}
-                  >
-                    <Link href={item.url} data-testid={`nav-${item.title.toLowerCase().replace(/\s+/g, "-")}`}>
-                      <item.icon className="w-4 h-4" />
-                      <span>{item.title}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        {adminNavItems.length > 0 && (
+          <SidebarGroup>
+            <SidebarGroupLabel>Administration</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {adminNavItems.map((item) => (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={location.startsWith(item.url)}
+                    >
+                      <Link href={item.url} data-testid={`nav-${item.title.toLowerCase().replace(/\s+/g, "-")}`}>
+                        <item.icon className="w-4 h-4" />
+                        <span>{item.title}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
       </SidebarContent>
       <SidebarFooter className="p-2">
         <DropdownMenu>

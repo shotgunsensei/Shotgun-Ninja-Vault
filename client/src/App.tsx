@@ -22,6 +22,7 @@ import EvidenceUploadPage from "@/pages/evidence-upload";
 import EvidenceDetailPage from "@/pages/evidence-detail";
 import TeamPage from "@/pages/team";
 import AuditPage from "@/pages/audit";
+import ClientAccessPage from "@/pages/client-access";
 import SettingsPage from "@/pages/settings";
 import NotFound from "@/pages/not-found";
 
@@ -54,6 +55,10 @@ function AuthenticatedApp() {
     return <OnboardingPage />;
   }
 
+  const role = tenantInfo.role as "OWNER" | "ADMIN" | "TECH" | "CLIENT";
+  const isClient = role === "CLIENT";
+  const isAdminOrOwner = role === "OWNER" || role === "ADMIN";
+
   const style = {
     "--sidebar-width": "16rem",
     "--sidebar-width-icon": "3rem",
@@ -62,7 +67,7 @@ function AuthenticatedApp() {
   return (
     <SidebarProvider style={style as React.CSSProperties}>
       <div className="flex h-screen w-full">
-        <AppSidebar />
+        <AppSidebar role={role} />
         <div className="flex flex-col flex-1 min-w-0">
           <header className="flex items-center justify-between gap-4 p-2 border-b sticky top-0 z-50 bg-background/80 backdrop-blur-md">
             <SidebarTrigger data-testid="button-sidebar-toggle" />
@@ -73,14 +78,15 @@ function AuthenticatedApp() {
               <Route path="/" component={DashboardPage} />
               <Route path="/clients" component={ClientsPage} />
               <Route path="/clients/:id" component={ClientDetailPage} />
-              <Route path="/sites" component={SitesPage} />
-              <Route path="/assets" component={AssetsPage} />
+              {!isClient && <Route path="/sites" component={SitesPage} />}
+              {!isClient && <Route path="/assets" component={AssetsPage} />}
               <Route path="/evidence" component={EvidencePage} />
               <Route path="/evidence/upload" component={EvidenceUploadPage} />
               <Route path="/evidence/:id" component={EvidenceDetailPage} />
-              <Route path="/team" component={TeamPage} />
-              <Route path="/audit" component={AuditPage} />
-              <Route path="/settings" component={SettingsPage} />
+              {isAdminOrOwner && <Route path="/team" component={TeamPage} />}
+              {isAdminOrOwner && <Route path="/audit" component={AuditPage} />}
+              {isAdminOrOwner && <Route path="/client-access" component={ClientAccessPage} />}
+              {!isClient && <Route path="/settings" component={SettingsPage} />}
               <Route component={NotFound} />
             </Switch>
           </main>

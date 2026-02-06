@@ -31,7 +31,8 @@ import { apiRequest } from "@/lib/queryClient";
 import { formatDistanceToNow } from "date-fns";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { EvidencePreviewButton } from "@/components/evidence-preview";
-import type { EvidenceWithRelations } from "@/lib/types";
+import type { EvidenceWithRelations, TenantWithMember } from "@/lib/types";
+import { useAuth } from "@/hooks/use-auth";
 
 function formatFileSize(bytes: number): string {
   if (bytes < 1024) return bytes + " B";
@@ -44,6 +45,19 @@ export default function EvidenceDetailPage() {
   const [, navigate] = useLocation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
+
+  const { data: tenantInfo, isLoading: tenantLoading } = useQuery<TenantWithMember>({
+    queryKey: ["/api/tenant"],
+    queryFn: async () => {
+      const res = await fetch("/api/tenant", { credentials: "include" });
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    },
+  });
+
+  const role = tenantInfo?.role;
+  const canDelete = role && role !== "CLIENT";
 
   const { data: item, isLoading } = useQuery<EvidenceWithRelations>({
     queryKey: ["/api/evidence", params?.id],
@@ -131,33 +145,35 @@ export default function EvidenceDetailPage() {
               Download
             </a>
           </Button>
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button variant="destructive" data-testid="button-delete-evidence">
-                <Trash2 className="w-4 h-4 mr-1" />
-                Delete
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Delete evidence?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  This will permanently delete the evidence file and its metadata.
-                  This action cannot be undone.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction
-                  onClick={() => deleteMutation.mutate()}
-                  className="bg-destructive text-destructive-foreground"
-                  data-testid="button-confirm-delete"
-                >
+          {canDelete && (
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="destructive" data-testid="button-delete-evidence">
+                  <Trash2 className="w-4 h-4 mr-1" />
                   Delete
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete evidence?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This will permanently delete the evidence file and its metadata.
+                    This action cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={() => deleteMutation.mutate()}
+                    className="bg-destructive text-destructive-foreground"
+                    data-testid="button-confirm-delete"
+                  >
+                    Delete
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          )}
         </div>
       </div>
 

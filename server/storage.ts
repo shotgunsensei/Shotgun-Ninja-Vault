@@ -22,6 +22,7 @@ import {
   type Tag,
   type InsertTag,
   type AuditLog,
+  type ClientUserAccess,
 } from "@shared/schema";
 import { users } from "@shared/models/auth";
 import { db } from "./db";
@@ -94,6 +95,12 @@ export interface IStorage {
   }>;
 
   getClientIdsForUser(userId: string): Promise<string[]>;
+  getClientAccessForUser(userId: string): Promise<Array<{ clientId: string; canUpload: boolean }>>;
+  getClientAccessByTenant(tenantId: string): Promise<any[]>;
+  addClientAccess(tenantId: string, userId: string, clientId: string, canUpload?: boolean): Promise<ClientUserAccess>;
+  removeClientAccess(tenantId: string, id: string): Promise<void>;
+  updateClientAccessCanUpload(tenantId: string, id: string, canUpload: boolean): Promise<void>;
+  canUserUploadForClient(userId: string, clientId: string): Promise<boolean>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -544,6 +551,71 @@ export class DatabaseStorage implements IStorage {
       .from(clientUserAssignments)
       .where(eq(clientUserAssignments.userId, userId));
     return assignments.map((a) => a.clientId);
+  }
+
+  async getClientAccessForUser(userId: string): Promise<Array<{ clientId: string; canUpload: boolean }>> {
+    return db
+      .select({
+        clientId: clientUserAssignments.clientId,
+        canUpload: clientUserAssignments.canUpload,
+      })
+      .from(clientUserAssignments)
+      .where(eq(clientUserAssignments.userId, userId));
+  }
+
+  async getClientAccessByTenant(tenantId: string): Promise<any[]> {
+    return db
+      .select({
+        id: clientUserAssignments.id,
+        tenantId: clientUserAssignments.tenantId,
+        clientId: clientUserAssignments.clientId,
+        userId: clientUserAssignments.userId,
+        canUpload: clientUserAssignments.canUpload,
+        createdAt: clientUserAssignments.createdAt,
+        clientName: clients.name,
+        userEmail: users.email,
+        userFirstName: users.firstName,
+        userLastName: users.lastName,
+      })
+      .from(clientUserAssignments)
+      .leftJoin(clients, eq(clientUserAssignments.clientId, clients.id))
+      .leftJoin(users, eq(clientUserAssignments.userId, users.id))
+      .where(eq(clientUserAssignments.tenantId, tenantId))
+      .orderBy(desc(clientUserAssignments.createdAt));
+  }
+
+  async addClientAccess(tenantId: string, userId: string, clientId: string, canUpload = false): Promise<ClientUserAccess> {
+    const [access] = await db
+      .insert(clientUserAssignments)
+      .values({ tenantId, userId, clientId, canUpload })
+      .returning();
+    return access;
+  }
+
+  async removeClientAccess(tenantId: string, id: string): Promise<void> {
+    await db
+      .delete(clientUserAssignments)
+      .where(and(eq(clientUserAssignments.tenantId, tenantId), eq(clientUserAssignments.id, id)));
+  }
+
+  async updateClientAccessCanUpload(tenantId: string, id: string, canUpload: boolean): Promise<void> {
+    await db
+      .update(clientUserAssignments)
+      .set({ canUpload })
+      .where(and(eq(clientUserAssignments.tenantId, tenantId), eq(clientUserAssignments.id, id)));
+  }
+
+  async canUserUploadForClient(userId: string, clientId: string): Promise<boolean> {
+    const [access] = await db
+      .select({ canUpload: clientUserAssignments.canUpload })
+      .from(clientUserAssignments)
+      .where(
+        and(
+          eq(clientUserAssignments.userId, userId),
+          eq(clientUserAssignments.clientId, clientId)
+        )
+      );
+    return access?.canUpload ?? false;
   }
 }
 
