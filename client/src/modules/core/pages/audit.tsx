@@ -196,11 +196,15 @@ export default function AuditPage() {
                               : "Just now"}
                           </span>
                         </div>
-                        {log.details && typeof log.details === "object" && Object.keys(log.details as Record<string, unknown>).length > 0 && (
-                          <div className="mt-1 text-xs text-muted-foreground font-mono bg-muted/50 p-1.5 rounded-md max-w-lg truncate">
-                            {JSON.stringify(log.details) as string}
-                          </div>
-                        )}
+                        {(() => {
+                          const d = log.details;
+                          if (!d || typeof d !== "object" || Object.keys(d as Record<string, unknown>).length === 0) return null;
+                          return (
+                            <div className="mt-1 text-xs text-muted-foreground font-mono bg-muted/50 p-1.5 rounded-md max-w-lg truncate">
+                              {String(JSON.stringify(d))}
+                            </div>
+                          );
+                        })()}
                       </div>
                     </div>
                   </div>

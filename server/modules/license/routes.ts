@@ -4,7 +4,7 @@ import { isAuthenticated } from "../../replit_integrations/auth";
 import { requireRole } from "../../authz";
 import { z } from "zod";
 import crypto from "crypto";
-import { eventBus } from "../../core/events/bus";
+import { emitEvent } from "../../core/events/helpers";
 
 function generateLicenseKey(): string {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -111,14 +111,7 @@ export function registerLicenseRoutes(app: Express) {
           tenantId,
         });
 
-        await eventBus.emit({
-          type: "create_license_product",
-          tenantId,
-          actorUserId: userId,
-          entityType: "license_product",
-          entityId: product.id,
-          details: { name: parsed.data.name, slug: parsed.data.slug },
-        });
+        await emitEvent("create_license_product", tenantId, userId, "license_product", product.id, { name: parsed.data.name, slug: parsed.data.slug });
 
         res.json(product);
       } catch (error: any) {
@@ -156,14 +149,7 @@ export function registerLicenseRoutes(app: Express) {
         const product = await storage.updateLicenseProduct(tenantId, req.params.id, parsed.data);
         if (!product) return res.status(404).json({ message: "Product not found" });
 
-        await eventBus.emit({
-          type: "update_license_product",
-          tenantId,
-          actorUserId: userId,
-          entityType: "license_product",
-          entityId: req.params.id,
-          details: parsed.data,
-        });
+        await emitEvent("update_license_product", tenantId, userId, "license_product", req.params.id, parsed.data);
 
         res.json(product);
       } catch (error: any) {
@@ -225,14 +211,7 @@ export function registerLicenseRoutes(app: Express) {
           expiresAt: parsed.data.expiresAt ? new Date(parsed.data.expiresAt) : null,
         });
 
-        await eventBus.emit({
-          type: "issue_license_key",
-          tenantId,
-          actorUserId: userId,
-          entityType: "license_key",
-          entityId: licenseKey.id,
-          details: { productId: req.params.productId, label: parsed.data.label, maxActivations: parsed.data.maxActivations },
-        });
+        await emitEvent("issue_license_key", tenantId, userId, "license_key", licenseKey.id, { productId: req.params.productId, label: parsed.data.label, maxActivations: parsed.data.maxActivations });
 
         res.json({
           ...licenseKey,
@@ -257,14 +236,7 @@ export function registerLicenseRoutes(app: Express) {
 
         await storage.revokeLicenseKey(tenantId, req.params.id);
 
-        await eventBus.emit({
-          type: "revoke_license_key",
-          tenantId,
-          actorUserId: userId,
-          entityType: "license_key",
-          entityId: req.params.id,
-          details: { productId: key.productId },
-        });
+        await emitEvent("revoke_license_key", tenantId, userId, "license_key", req.params.id, { productId: key.productId });
 
         res.json({ success: true });
       } catch (error: any) {
@@ -360,13 +332,7 @@ export function registerLicenseRoutes(app: Express) {
         const newCount = activationCount + 1;
 
         try {
-          await eventBus.emit({
-            type: "license_validate_activation",
-            tenantId: keyRecord.tenantId,
-            entityType: "license_key",
-            entityId: keyRecord.id,
-            details: { deviceFingerprint: deviceFingerprint.substring(0, 32), productSlug },
-          });
+          await emitEvent("license_validate_activation", keyRecord.tenantId, undefined, "license_key", keyRecord.id, { deviceFingerprint: deviceFingerprint.substring(0, 32), productSlug });
         } catch {}
 
         return res.json({

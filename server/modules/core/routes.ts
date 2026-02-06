@@ -9,7 +9,7 @@ import {
   insertAssetSchema,
   insertTenantSchema,
 } from "@shared/schema";
-import { eventBus } from "../../core/events/bus";
+import { emitEvent } from "../../core/events/helpers";
 
 export function registerCoreRoutes(app: Express) {
   app.post("/api/tenants", isAuthenticated, requireUser(), async (req: any, res) => {
@@ -34,14 +34,7 @@ export function registerCoreRoutes(app: Express) {
       const tenant = await storage.createTenant({ name, slug });
       await storage.addMember(tenant.id, userId, "OWNER");
 
-      await eventBus.emit({
-        type: "create_tenant",
-        tenantId: tenant.id,
-        actorUserId: userId,
-        entityType: "tenant",
-        entityId: tenant.id,
-        details: { name, slug },
-      });
+      await emitEvent("create_tenant", tenant.id, userId, "tenant", tenant.id, { name, slug });
 
       res.json(tenant);
     } catch (error: any) {
@@ -120,14 +113,7 @@ export function registerCoreRoutes(app: Express) {
           tenantId,
         });
 
-        await eventBus.emit({
-          type: "create_client",
-          tenantId,
-          actorUserId: userId,
-          entityType: "client",
-          entityId: client.id,
-          details: { name: parsed.data.name },
-        });
+        await emitEvent("create_client", tenantId, userId, "client", client.id, { name: parsed.data.name });
 
         res.json(client);
       } catch (error: any) {
@@ -163,14 +149,7 @@ export function registerCoreRoutes(app: Express) {
           tenantId,
         });
 
-        await eventBus.emit({
-          type: "create_site",
-          tenantId,
-          actorUserId: userId,
-          entityType: "site",
-          entityId: site.id,
-          details: { name: parsed.data.name },
-        });
+        await emitEvent("create_site", tenantId, userId, "site", site.id, { name: parsed.data.name });
 
         res.json(site);
       } catch (error: any) {
@@ -216,14 +195,7 @@ export function registerCoreRoutes(app: Express) {
           tenantId,
         });
 
-        await eventBus.emit({
-          type: "create_asset",
-          tenantId,
-          actorUserId: userId,
-          entityType: "asset",
-          entityId: asset.id,
-          details: { name: parsed.data.name },
-        });
+        await emitEvent("create_asset", tenantId, userId, "asset", asset.id, { name: parsed.data.name });
 
         res.json(asset);
       } catch (error: any) {
@@ -260,13 +232,7 @@ export function registerCoreRoutes(app: Express) {
 
         const { email, role } = parsed.data;
 
-        await eventBus.emit({
-          type: "invite_member",
-          tenantId,
-          actorUserId: userId,
-          entityType: "member",
-          details: { email, role },
-        });
+        await emitEvent("invite_member", tenantId, userId, "member", undefined, { email, role });
 
         res.json({ success: true, message: `Invite sent to ${email} as ${role}` });
       } catch (error: any) {
@@ -293,14 +259,7 @@ export function registerCoreRoutes(app: Express) {
 
         await storage.updateMemberRole(tenantId, req.params.id, parsed.data.role);
 
-        await eventBus.emit({
-          type: "change_role",
-          tenantId,
-          actorUserId: userId,
-          entityType: "member",
-          entityId: req.params.id,
-          details: { newRole: parsed.data.role },
-        });
+        await emitEvent("change_role", tenantId, userId, "member", req.params.id, { newRole: parsed.data.role });
 
         res.json({ success: true });
       } catch (error: any) {
@@ -372,14 +331,7 @@ export function registerCoreRoutes(app: Express) {
 
       const access = await storage.addClientAccess(tenantId, targetUserId, clientId, canUpload);
 
-      await eventBus.emit({
-        type: "grant_client_access",
-        tenantId,
-        actorUserId: userId,
-        entityType: "client_access",
-        entityId: access.id,
-        details: { targetUserId, clientId, canUpload },
-      });
+      await emitEvent("grant_client_access", tenantId, userId, "client_access", access.id, { targetUserId, clientId, canUpload });
 
       res.json(access);
     } catch (error: any) {
@@ -398,14 +350,7 @@ export function registerCoreRoutes(app: Express) {
 
       await storage.updateClientAccessCanUpload(tenantId, req.params.id, parsed.data.canUpload);
 
-      await eventBus.emit({
-        type: "update_client_access",
-        tenantId,
-        actorUserId: userId,
-        entityType: "client_access",
-        entityId: req.params.id,
-        details: { canUpload: parsed.data.canUpload },
-      });
+      await emitEvent("update_client_access", tenantId, userId, "client_access", req.params.id, { canUpload: parsed.data.canUpload });
 
       res.json({ success: true });
     } catch (error: any) {
@@ -419,13 +364,7 @@ export function registerCoreRoutes(app: Express) {
 
       await storage.removeClientAccess(tenantId, req.params.id);
 
-      await eventBus.emit({
-        type: "revoke_client_access",
-        tenantId,
-        actorUserId: userId,
-        entityType: "client_access",
-        entityId: req.params.id,
-      });
+      await emitEvent("revoke_client_access", tenantId, userId, "client_access", req.params.id);
 
       res.json({ success: true });
     } catch (error: any) {

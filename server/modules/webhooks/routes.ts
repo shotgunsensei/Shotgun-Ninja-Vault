@@ -3,7 +3,7 @@ import crypto from "crypto";
 import { storage } from "../../storage";
 import { isAuthenticated } from "../../replit_integrations/auth";
 import { requireRole } from "../../authz";
-import { eventBus } from "../../core/events/bus";
+import { emitEvent } from "../../core/events/helpers";
 import { z } from "zod";
 
 const createWebhookSchema = z.object({
@@ -49,14 +49,7 @@ export function registerWebhookRoutes(app: Express) {
         description: parsed.data.description,
       });
 
-      await eventBus.emit({
-        type: "webhook.created",
-        tenantId,
-        actorUserId: userId,
-        entityType: "webhook_endpoint",
-        entityId: endpoint.id,
-        details: { url: parsed.data.url, eventTypes: parsed.data.eventTypes },
-      });
+      await emitEvent("webhook.created", tenantId, userId, "webhook_endpoint", endpoint.id, { url: parsed.data.url, eventTypes: parsed.data.eventTypes });
 
       res.json({ ...endpoint, signingSecret: secret });
     } catch (error: any) {
@@ -75,14 +68,7 @@ export function registerWebhookRoutes(app: Express) {
       const updated = await storage.updateWebhookEndpoint(tenantId, req.params.id, parsed.data);
       if (!updated) return res.status(404).json({ message: "Webhook not found" });
 
-      await eventBus.emit({
-        type: "webhook.updated",
-        tenantId,
-        actorUserId: userId,
-        entityType: "webhook_endpoint",
-        entityId: req.params.id,
-        details: parsed.data,
-      });
+      await emitEvent("webhook.updated", tenantId, userId, "webhook_endpoint", req.params.id, parsed.data);
 
       const { secret, ...sanitized } = updated;
       res.json(sanitized);
@@ -96,13 +82,7 @@ export function registerWebhookRoutes(app: Express) {
       const { tenantId, userId } = req.tenantCtx;
       await storage.deleteWebhookEndpoint(tenantId, req.params.id);
 
-      await eventBus.emit({
-        type: "webhook.deleted",
-        tenantId,
-        actorUserId: userId,
-        entityType: "webhook_endpoint",
-        entityId: req.params.id,
-      });
+      await emitEvent("webhook.deleted", tenantId, userId, "webhook_endpoint", req.params.id);
 
       res.json({ success: true });
     } catch (error: any) {

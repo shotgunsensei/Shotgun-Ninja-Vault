@@ -7,7 +7,7 @@ import multer from "multer";
 import path from "path";
 import crypto from "crypto";
 import archiver from "archiver";
-import { eventBus } from "../../core/events/bus";
+import { emitEvent } from "../../core/events/helpers";
 
 const ALLOWED_EXTENSIONS = ["png", "jpg", "jpeg", "pdf", "txt", "log", "csv", "json"];
 
@@ -197,14 +197,7 @@ export function registerEvidenceRoutes(app: Express) {
           uploadedById: userId,
         });
 
-        await eventBus.emit({
-          type: "upload_evidence",
-          tenantId,
-          actorUserId: userId,
-          entityType: "evidence",
-          entityId: evidence.id,
-          details: { fileName: file.originalname, fileSize: file.size, sha256 },
-        });
+        await emitEvent("upload_evidence", tenantId, userId, "evidence", evidence.id, { fileName: file.originalname, fileSize: file.size, sha256 });
 
         res.json(evidence);
       } catch (error: any) {
@@ -230,14 +223,7 @@ export function registerEvidenceRoutes(app: Express) {
         await storage.deleteEvidence(tenantId, req.params.id);
         await fileStorage.delete(item.filePath);
 
-        await eventBus.emit({
-          type: "delete_evidence",
-          tenantId,
-          actorUserId: userId,
-          entityType: "evidence",
-          entityId: req.params.id,
-          details: { fileName: item.fileName },
-        });
+        await emitEvent("delete_evidence", tenantId, userId, "evidence", req.params.id, { fileName: item.fileName });
 
         res.json({ success: true });
       } catch (error: any) {
@@ -354,14 +340,7 @@ export function registerEvidenceRoutes(app: Express) {
 
         await archive.finalize();
 
-        await eventBus.emit({
-          type: "evidence.packet_exported",
-          tenantId,
-          actorUserId: userId,
-          entityType: "evidence_packet",
-          entityId: packetId,
-          details: { itemCount: items.length, evidenceIds },
-        });
+        await emitEvent("evidence.packet_exported", tenantId, userId, "evidence_packet", packetId, { itemCount: items.length, evidenceIds });
       } catch (error: any) {
         console.error("[evidence-export] Error:", error);
         if (!res.headersSent) {
