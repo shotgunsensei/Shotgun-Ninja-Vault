@@ -10,20 +10,26 @@ import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import { Skeleton } from "@/components/ui/skeleton";
 
-import LandingPage from "@/pages/landing";
-import OnboardingPage from "@/pages/onboarding";
-import DashboardPage from "@/pages/dashboard";
-import ClientsPage from "@/pages/clients";
-import ClientDetailPage from "@/pages/client-detail";
-import SitesPage from "@/pages/sites";
-import AssetsPage from "@/pages/assets";
-import EvidencePage from "@/pages/evidence";
-import EvidenceUploadPage from "@/pages/evidence-upload";
-import EvidenceDetailPage from "@/pages/evidence-detail";
-import TeamPage from "@/pages/team";
-import AuditPage from "@/pages/audit";
-import ClientAccessPage from "@/pages/client-access";
-import SettingsPage from "@/pages/settings";
+import {
+  LandingPage,
+  OnboardingPage,
+  DashboardPage,
+  ClientsPage,
+  ClientDetailPage,
+  SitesPage,
+  AssetsPage,
+  TeamPage,
+  AuditPage,
+  ClientAccessPage,
+  SettingsPage,
+} from "@/modules/core";
+
+import {
+  EvidencePage,
+  EvidenceUploadPage,
+  EvidenceDetailPage,
+} from "@/modules/evidence";
+
 import NotFound from "@/pages/not-found";
 
 import type { TenantWithMember } from "@/lib/types";

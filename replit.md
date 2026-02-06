@@ -1,7 +1,7 @@
 # Shotgun Ninja Vault (SNV)
 
 ## Overview
-A multi-tenant SaaS web application for IT professionals and MSPs to securely manage digital evidence. Features role-based access control, evidence file management, client/asset tracking, and audit logging.
+A multi-tenant SaaS web application for IT professionals and MSPs to securely manage digital evidence. Features role-based access control, evidence file management, client/asset tracking, and audit logging. Built with a modular architecture.
 
 ## Architecture
 - **Frontend**: React + Vite + wouter + TanStack Query + shadcn/ui + Tailwind
@@ -9,26 +9,53 @@ A multi-tenant SaaS web application for IT professionals and MSPs to securely ma
 - **Database**: PostgreSQL with Drizzle ORM
 - **Auth**: Replit Auth (OIDC) via passport
 - **File Storage**: Local disk storage with `StorageProvider` interface (swappable to S3)
+- **Module System**: Shared module registry with per-module server routes and client pages
 
 ## Project Structure
 ```
-client/src/
-  pages/         - All page components (dashboard, clients, assets, evidence, etc.)
-  components/    - Reusable components (app-sidebar, breadcrumbs, evidence-preview, theme-provider)
-  hooks/         - Custom hooks (use-auth, use-toast)
-  lib/           - Utilities (queryClient, types, auth-utils)
-server/
-  index.ts       - Express server entry point
-  routes.ts      - All API routes with RBAC middleware
-  authz.ts       - Centralized authorization middleware (requireUser, requireTenant, requireRole, requireClientAccess)
-  storage.ts     - DatabaseStorage implementing IStorage interface
-  fileStorage.ts - StorageProvider for file upload/download with sha256 dedup
-  db.ts          - Drizzle + pg pool setup
-  replit_integrations/auth/ - Replit Auth integration
 shared/
-  schema.ts      - All Drizzle schemas and types
-  models/auth.ts - Auth-specific schemas (users, sessions)
+  schema.ts             - All Drizzle schemas and types
+  models/auth.ts        - Auth-specific schemas (users, sessions)
+  modules/
+    index.ts            - Module registry (lists all modules, enabled state)
+    types.ts            - ModuleDefinition, ModuleRegistry types
+
+server/
+  index.ts              - Express server entry point
+  routes.ts             - Slim orchestrator: imports + registers module routes
+  authz.ts              - Authorization middleware (requireUser, requireTenant, requireRole, requireClientAccess)
+  storage.ts            - DatabaseStorage implementing IStorage interface
+  fileStorage.ts        - StorageProvider for file upload/download with sha256 dedup
+  db.ts                 - Drizzle + pg pool setup
+  replit_integrations/auth/ - Replit Auth integration
+  modules/
+    core/routes.ts      - Core API routes (tenants, clients, sites, assets, members, audit, client-access, dashboard, modules)
+    evidence/routes.ts  - Evidence API routes (CRUD, upload, download, delete, tags)
+
+client/src/
+  App.tsx               - Root app with routing, imports from module barrels
+  pages/                - Re-export stubs pointing to module pages (backward compat)
+  components/           - Shared components (app-sidebar, breadcrumbs, theme-provider, ui/)
+  hooks/                - Custom hooks (use-auth, use-toast)
+  lib/                  - Utilities (queryClient, types, auth-utils)
+  modules/
+    core/
+      index.ts          - Barrel exports for all core pages
+      pages/            - dashboard, clients, client-detail, sites, assets, team, audit, client-access, settings, onboarding, landing
+    evidence/
+      index.ts          - Barrel exports for all evidence pages + components
+      pages/            - evidence, evidence-detail, evidence-upload
+      components/       - evidence-preview
 ```
+
+## Module System
+- **Registry**: `shared/modules/index.ts` defines all modules with metadata (id, name, description, version, category, enabled, requiredPlan, navItems)
+- **Two modules**: `core` (always enabled, category: core) and `evidence` (Evidence Locker, category: feature)
+- **API**: `GET /api/modules` returns the module list to the frontend
+- **Settings page**: Shows enabled modules with status badges, versions, and plan requirements
+- **Server routes**: Each module registers its own Express routes via a `register*Routes(app)` function
+- **Client pages**: Each module has a barrel `index.ts` re-exporting page components; App.tsx imports from these barrels
+- **Backward compatibility**: Original `client/src/pages/` files are kept as re-export stubs
 
 ## Authorization (server/authz.ts)
 - `requireUser` - Ensures request has authenticated user
@@ -61,6 +88,7 @@ shared/
 7. Audit logging for all key actions (uploads, deletes, role changes, invites)
 8. Billing stub with plan limits
 9. Breadcrumb navigation on detail pages
+10. Module registry with settings page showing enabled modules
 
 ## Environment Variables
 - `DATABASE_URL` - PostgreSQL connection string (auto-configured)
@@ -79,16 +107,8 @@ shared/
 - `/api/dashboard` restricted to OWNER/ADMIN/TECH roles server-side
 
 ## Recent Changes
-- Initial build: Full schema, frontend, backend, auth integration
-- Added Zod validation on all POST routes using createInsertSchema
-- Added server-side MIME type filtering for evidence uploads
-- Added SEO meta tags in index.html
-- Centralized authorization into authz.ts module
-- Added SHA-256 file deduplication and tenant-scoped file paths
-- Implemented Postgres full-text search for evidence with advanced filters
-- Enhanced audit logging with role change tracking and metadata
-- Added breadcrumb navigation and evidence preview modal
-- Evidence list page with search filters (client, date range, text search)
-- CLIENT portal: role-aware sidebar, conditional routing, client assignment management, portal dashboard
-- Server-side role restriction on /api/dashboard endpoint
-- Loading guards for role-dependent UI (dashboard, evidence detail)
+- Refactored to module-ready architecture: shared/modules registry, server/modules/{core,evidence}/routes.ts, client/src/modules/{core,evidence}/ with barrel exports
+- server/routes.ts is now a slim orchestrator importing module route registrars
+- Settings page shows enabled modules with version, category, and status
+- GET /api/modules endpoint serves module registry to frontend
+- Old client/src/pages/ files kept as re-export stubs for backward compatibility
