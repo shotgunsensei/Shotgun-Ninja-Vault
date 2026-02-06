@@ -35,6 +35,9 @@ import {
   type InsertLicenseActivation,
   type WebhookEndpoint,
   type InsertWebhookEndpoint,
+  webhookDeliveries,
+  type WebhookDelivery,
+  type InsertWebhookDelivery,
 } from "@shared/schema";
 import { users } from "@shared/models/auth";
 import { db } from "./db";
@@ -48,6 +51,14 @@ export interface SearchFilters {
   dateFrom?: string;
   dateTo?: string;
   uploadedBy?: string;
+}
+
+export interface AuditFilters {
+  action?: string;
+  entityType?: string;
+  dateFrom?: string;
+  dateTo?: string;
+  userId?: string;
 }
 
 export interface IStorage {
@@ -94,7 +105,8 @@ export interface IStorage {
     entityId?: string;
     details?: any;
   }): Promise<AuditLog>;
-  getAuditLogsByTenant(tenantId: string): Promise<any[]>;
+  getAuditLogsByTenant(tenantId: string, filters?: AuditFilters): Promise<any[]>;
+  getAuditActionTypes(tenantId: string): Promise<string[]>;
 
   getDashboardStats(tenantId: string): Promise<{
     totalClients: number;
@@ -130,6 +142,18 @@ export interface IStorage {
   getActivationsByKey(tenantId: string, licenseKeyId: string): Promise<LicenseActivation[]>;
   getActivationCountByKey(licenseKeyId: string): Promise<number>;
   getActivationByFingerprint(licenseKeyId: string, deviceFingerprint: string): Promise<LicenseActivation | undefined>;
+
+  createWebhookEndpoint(data: InsertWebhookEndpoint): Promise<WebhookEndpoint>;
+  getWebhookEndpointsByTenant(tenantId: string): Promise<WebhookEndpoint[]>;
+  getWebhookEndpointById(tenantId: string, id: string): Promise<WebhookEndpoint | undefined>;
+  updateWebhookEndpoint(tenantId: string, id: string, data: Partial<Pick<WebhookEndpoint, "url" | "enabled" | "eventTypes" | "description">>): Promise<WebhookEndpoint | undefined>;
+  deleteWebhookEndpoint(tenantId: string, id: string): Promise<void>;
+  getEnabledWebhooksForEvent(tenantId: string, eventType: string): Promise<WebhookEndpoint[]>;
+
+  createWebhookDelivery(data: InsertWebhookDelivery): Promise<WebhookDelivery>;
+  getWebhookDeliveriesByEndpoint(tenantId: string, endpointId: string, limit?: number): Promise<WebhookDelivery[]>;
+  getPendingWebhookDeliveries(limit?: number): Promise<WebhookDelivery[]>;
+  updateWebhookDelivery(id: string, data: Partial<Pick<WebhookDelivery, "status" | "responseCode" | "responseBody" | "durationMs" | "attempts" | "nextRetryAt" | "completedAt">>): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -512,7 +536,27 @@ export class DatabaseStorage implements IStorage {
     return log;
   }
 
-  async getAuditLogsByTenant(tenantId: string): Promise<any[]> {
+  async getAuditLogsByTenant(tenantId: string, filters?: AuditFilters): Promise<any[]> {
+    const conditions = [eq(auditLogs.tenantId, tenantId)];
+
+    if (filters?.action) {
+      conditions.push(eq(auditLogs.action, filters.action));
+    }
+    if (filters?.entityType) {
+      conditions.push(eq(auditLogs.entityType, filters.entityType));
+    }
+    if (filters?.userId) {
+      conditions.push(eq(auditLogs.userId, filters.userId));
+    }
+    if (filters?.dateFrom) {
+      conditions.push(gte(auditLogs.createdAt, new Date(filters.dateFrom)));
+    }
+    if (filters?.dateTo) {
+      const endDate = new Date(filters.dateTo);
+      endDate.setDate(endDate.getDate() + 1);
+      conditions.push(lte(auditLogs.createdAt, endDate));
+    }
+
     const result = await db
       .select({
         id: auditLogs.id,
@@ -528,7 +572,7 @@ export class DatabaseStorage implements IStorage {
       })
       .from(auditLogs)
       .leftJoin(users, eq(auditLogs.userId, users.id))
-      .where(eq(auditLogs.tenantId, tenantId))
+      .where(and(...conditions))
       .orderBy(desc(auditLogs.createdAt))
       .limit(200);
 
@@ -536,6 +580,15 @@ export class DatabaseStorage implements IStorage {
       ...r,
       userName: [r.userFirstName, r.userLastName].filter(Boolean).join(" ") || undefined,
     }));
+  }
+
+  async getAuditActionTypes(tenantId: string): Promise<string[]> {
+    const result = await db
+      .selectDistinct({ action: auditLogs.action })
+      .from(auditLogs)
+      .where(eq(auditLogs.tenantId, tenantId))
+      .orderBy(auditLogs.action);
+    return result.map((r) => r.action);
   }
 
   async getDashboardStats(tenantId: string) {
@@ -766,6 +819,73 @@ export class DatabaseStorage implements IStorage {
         )
       );
     return result;
+  }
+
+  async createWebhookEndpoint(data: InsertWebhookEndpoint): Promise<WebhookEndpoint> {
+    const [endpoint] = await db.insert(webhookEndpoints).values(data).returning();
+    return endpoint;
+  }
+
+  async getWebhookEndpointsByTenant(tenantId: string): Promise<WebhookEndpoint[]> {
+    return db.select().from(webhookEndpoints).where(eq(webhookEndpoints.tenantId, tenantId)).orderBy(desc(webhookEndpoints.createdAt));
+  }
+
+  async getWebhookEndpointById(tenantId: string, id: string): Promise<WebhookEndpoint | undefined> {
+    const [endpoint] = await db.select().from(webhookEndpoints).where(and(eq(webhookEndpoints.tenantId, tenantId), eq(webhookEndpoints.id, id)));
+    return endpoint;
+  }
+
+  async updateWebhookEndpoint(tenantId: string, id: string, data: Partial<Pick<WebhookEndpoint, "url" | "enabled" | "eventTypes" | "description">>): Promise<WebhookEndpoint | undefined> {
+    const [updated] = await db.update(webhookEndpoints).set(data).where(and(eq(webhookEndpoints.tenantId, tenantId), eq(webhookEndpoints.id, id))).returning();
+    return updated;
+  }
+
+  async deleteWebhookEndpoint(tenantId: string, id: string): Promise<void> {
+    await db.delete(webhookEndpoints).where(and(eq(webhookEndpoints.tenantId, tenantId), eq(webhookEndpoints.id, id)));
+  }
+
+  async getEnabledWebhooksForEvent(tenantId: string, eventType: string): Promise<WebhookEndpoint[]> {
+    const endpoints = await db.select().from(webhookEndpoints).where(
+      and(
+        eq(webhookEndpoints.tenantId, tenantId),
+        eq(webhookEndpoints.enabled, true)
+      )
+    );
+    return endpoints.filter((ep) => {
+      if (!ep.eventTypes || ep.eventTypes.length === 0) return true;
+      return ep.eventTypes.includes(eventType) || ep.eventTypes.includes("*");
+    });
+  }
+
+  async createWebhookDelivery(data: InsertWebhookDelivery): Promise<WebhookDelivery> {
+    const [delivery] = await db.insert(webhookDeliveries).values(data).returning();
+    return delivery;
+  }
+
+  async getWebhookDeliveriesByEndpoint(tenantId: string, endpointId: string, limit = 50): Promise<WebhookDelivery[]> {
+    return db.select().from(webhookDeliveries)
+      .where(and(eq(webhookDeliveries.tenantId, tenantId), eq(webhookDeliveries.webhookEndpointId, endpointId)))
+      .orderBy(desc(webhookDeliveries.createdAt))
+      .limit(limit);
+  }
+
+  async getPendingWebhookDeliveries(limit = 20): Promise<WebhookDelivery[]> {
+    return db.select().from(webhookDeliveries)
+      .where(
+        and(
+          eq(webhookDeliveries.status, "pending"),
+          or(
+            sql`${webhookDeliveries.nextRetryAt} IS NULL`,
+            lte(webhookDeliveries.nextRetryAt, new Date())
+          )
+        )
+      )
+      .orderBy(webhookDeliveries.createdAt)
+      .limit(limit);
+  }
+
+  async updateWebhookDelivery(id: string, data: Partial<Pick<WebhookDelivery, "status" | "responseCode" | "responseBody" | "durationMs" | "attempts" | "nextRetryAt" | "completedAt">>): Promise<void> {
+    await db.update(webhookDeliveries).set(data).where(eq(webhookDeliveries.id, id));
   }
 }
 

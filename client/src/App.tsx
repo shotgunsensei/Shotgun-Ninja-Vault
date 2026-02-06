@@ -35,6 +35,8 @@ import {
   DeveloperPage,
 } from "@/modules/license";
 
+import { WebhooksPage } from "@/modules/webhooks";
+
 import NotFound from "@/pages/not-found";
 
 import type { TenantWithMember } from "@/lib/types";
@@ -99,6 +101,7 @@ function AuthenticatedApp() {
               {isAdminOrOwner && <Route path="/client-access" component={ClientAccessPage} />}
               {isAdminOrOwner && <Route path="/licenses" component={LicensesPage} />}
               {isAdminOrOwner && <Route path="/licenses/developer" component={DeveloperPage} />}
+              {isAdminOrOwner && <Route path="/webhooks" component={WebhooksPage} />}
               {!isClient && <Route path="/settings" component={SettingsPage} />}
               <Route component={NotFound} />
             </Switch>

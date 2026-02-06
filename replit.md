@@ -126,7 +126,33 @@ client/src/
 - Dashboard shows ClientPortalDashboard for CLIENT role (assigned clients + evidence)
 - `/api/dashboard` restricted to OWNER/ADMIN/TECH roles server-side
 
+## Event-Driven Architecture
+- **Event Bus**: `server/core/events/bus.ts` - typed EventEmitter singleton, all domain events flow through it
+- **Event Types**: `server/core/events/types.ts` - DomainEvent type with type, tenantId, actorUserId, entityType, entityId, details
+- **Audit Subscriber**: `server/core/events/subscribers.ts` - auto-writes audit logs for all emitted events
+- All route handlers emit events via `eventBus.emit()` instead of direct `createAuditLog` calls
+
+## Webhooks Module
+- **Schema**: `webhookEndpoints` (url, secret, eventTypes[], active) + `webhookDeliveries` (status, attempts, response)
+- **Routes**: `server/modules/webhooks/routes.ts` - CRUD for webhook endpoints (OWNER/ADMIN only)
+- **Worker**: `server/modules/webhooks/worker.ts` - polls pending deliveries every 5s, HMAC-SHA256 signed (X-SNV-Event, X-SNV-Timestamp, X-SNV-Signature), exponential backoff (5 retries)
+- **UI**: `client/src/modules/webhooks/pages/webhooks.tsx` - manage webhook endpoints
+
+## Evidence Packet Export
+- **Endpoint**: `POST /api/evidence/export-packet` - generates ZIP with manifest.json, sha256sums.txt, evidence files, and audit/events.json
+- **UI**: Evidence Locker page has Export button with multi-select mode (checkboxes + select all/deselect all)
+- **Access**: OWNER, ADMIN, TECH roles only
+
+## Audit Log Filters
+- **Endpoint**: `GET /api/audit` supports query params: action, entityType, userId, dateFrom, dateTo
+- **Endpoint**: `GET /api/audit-actions` returns distinct action types for filter dropdown
+- **UI**: Audit page has collapsible filter panel with action type, entity type, date range filters
+
 ## Recent Changes
+- Added event-driven architecture with EventBus, typed domain events, and audit subscriber
+- Added Webhooks module with HMAC-signed delivery, exponential backoff retries, admin UI
+- Added audit log filters (action type, entity type, date range) with UI filter panel
+- Added Evidence Packet export (ZIP with manifest, sha256sums, files, audit trail) with multi-select UI
 - Added License Server module: data model (products, keys, activations, webhooks), storage layer, API routes with rate-limited public validate endpoint, admin UI, developer docs tab
 - Registered license module in shared/modules/index.ts
 - Added sidebar navigation group "License Server" with Licenses and Developer links

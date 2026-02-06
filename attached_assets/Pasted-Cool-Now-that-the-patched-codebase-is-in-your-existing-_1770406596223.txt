@@ -1,0 +1,167 @@
+Cool. Now that the patched codebase is in your existing Repl (domain intact), the move is: stabilize → harden the module system → ship the next revenue-grade module.
+
+Below is the forward path I recommend for Shotgun Ninja Vault, in the exact order that minimizes rework.
+
+1) Stabilization pass (so every next module is easy)
+A. Lock down “Module Registry” as the source of truth
+
+Goal: every module must declare:
+
+id, name, version
+
+routes (server)
+
+nav (client)
+
+permissions/roles
+
+settings schema (optional)
+
+events emitted/consumed (optional)
+
+Why: You’re building a vault platform, not a one-off app. If modules aren’t standardized now, you’ll pay “interest” later in bugs and glue code.
+
+✅ Deliverable: shared/modules/manifest.ts (single canonical schema)
+
+Example shape:
+
+export type VaultModuleManifest = {
+  id: string;
+  name: string;
+  version: string;
+  enabledByDefault?: boolean;
+
+  server?: {
+    mountPath: string;           // e.g. "/api/webhooks"
+    routesFile: string;          // for documentation/consistency
+    emits?: string[];            // events it emits
+    consumes?: string[];         // events it listens to
+  };
+
+  client?: {
+    nav: { label: string; path: string; icon?: string; roles?: string[] }[];
+  };
+
+  roles?: string[];              // roles relevant to this module
+};
+
+2) Event Bus backbone (this unlocks webhooks, audit, automations)
+Implement a simple internal event emitter on the server
+
+Goal: Modules can emit events like:
+
+evidence.uploaded
+
+license.activated
+
+member.added
+
+asset.created
+
+…and other modules (webhooks, audit log, notifications) can subscribe without tight coupling.
+
+✅ Deliverable files:
+
+server/core/events/bus.ts
+
+server/core/events/types.ts
+
+Minimal pattern:
+
+emit(eventName, payload, ctx)
+
+on(eventName, handler)
+
+always include tenantId, actorUserId, timestamp
+
+This is the backbone for:
+
+Webhooks module
+
+Audit log module
+
+Notifications module
+
+Future billing enforcement
+
+3) Next module to ship: Webhooks (fast ROI, platform-grade)
+
+You already have schema hints for this; it’s the cleanest “platform” upgrade.
+
+Webhooks v1 spec
+
+Data model
+
+id
+
+tenantId
+
+url
+
+secret (HMAC signing secret)
+
+enabled
+
+eventTypes[]
+
+createdAt
+
+Runtime
+
+Delivery queue (DB table)
+
+Retries with exponential backoff
+
+Delivery log (status, response code, duration)
+
+HMAC signature header (Stripe-style)
+
+API endpoints
+
+GET /api/webhooks
+
+POST /api/webhooks
+
+PATCH /api/webhooks/:id
+
+DELETE /api/webhooks/:id
+
+GET /api/webhooks/:id/deliveries
+
+Headers
+
+X-SNV-Event
+
+X-SNV-Timestamp
+
+X-SNV-Signature = hex(hmac_sha256(secret, timestamp + "." + rawBody))
+
+✅ Immediate value: you can integrate with Zapier/Make/n8n, or your own MSP stack (Kaseya, etc.) via a middle layer.
+
+4) Audit Log module (almost free once events exist)
+
+Once the event bus is in, audit logging is trivial:
+
+subscribe to * (or a whitelist)
+
+write AuditEvent records
+
+UI page with filters (date range, actor, type, resource)
+
+This becomes a compliance selling point.
+
+5) “Evidence Packet” export (ZIP + manifest + hashes)
+
+This is the compliance deliverable clients actually pay for.
+
+Output
+
+/packet/manifest.json
+
+/packet/sha256sums.txt
+
+/packet/evidence/<files…>
+
+/packet/audit/<events…>
+
+No PDF yet. ZIP first. PDF later.

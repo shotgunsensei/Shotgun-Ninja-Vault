@@ -10,6 +10,7 @@ import {
   KeyRound,
   Key,
   Code,
+  Webhook,
 } from "lucide-react";
 import { useLocation, Link } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
@@ -61,6 +62,7 @@ export function AppSidebar({ role }: AppSidebarProps) {
   ].filter((item) => item.show);
 
   const adminNavItems = [
+    { title: "Webhooks", url: "/webhooks", icon: Webhook, show: isAdminOrOwner },
     { title: "Team", url: "/team", icon: Building2, show: isAdminOrOwner },
     { title: "Client Access", url: "/client-access", icon: KeyRound, show: isAdminOrOwner },
     { title: "Audit Log", url: "/audit", icon: Shield, show: isAdminOrOwner },

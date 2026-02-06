@@ -6,6 +6,8 @@ import { requireTenant, requireRole } from "../../authz";
 import multer from "multer";
 import path from "path";
 import crypto from "crypto";
+import archiver from "archiver";
+import { eventBus } from "../../core/events/bus";
 
 const ALLOWED_EXTENSIONS = ["png", "jpg", "jpeg", "pdf", "txt", "log", "csv", "json"];
 
@@ -195,10 +197,10 @@ export function registerEvidenceRoutes(app: Express) {
           uploadedById: userId,
         });
 
-        await storage.createAuditLog({
+        await eventBus.emit({
+          type: "upload_evidence",
           tenantId,
-          userId,
-          action: "upload_evidence",
+          actorUserId: userId,
           entityType: "evidence",
           entityId: evidence.id,
           details: { fileName: file.originalname, fileSize: file.size, sha256 },
@@ -228,10 +230,10 @@ export function registerEvidenceRoutes(app: Express) {
         await storage.deleteEvidence(tenantId, req.params.id);
         await fileStorage.delete(item.filePath);
 
-        await storage.createAuditLog({
+        await eventBus.emit({
+          type: "delete_evidence",
           tenantId,
-          userId,
-          action: "delete_evidence",
+          actorUserId: userId,
           entityType: "evidence",
           entityId: req.params.id,
           details: { fileName: item.fileName },
@@ -252,4 +254,120 @@ export function registerEvidenceRoutes(app: Express) {
       res.status(500).json({ message: error.message });
     }
   });
+
+  app.post(
+    "/api/evidence/export-packet",
+    isAuthenticated,
+    requireRole("OWNER", "ADMIN", "TECH"),
+    async (req: any, res) => {
+      try {
+        const { tenantId, userId } = req.tenantCtx;
+        const { evidenceIds } = req.body;
+
+        if (!Array.isArray(evidenceIds) || evidenceIds.length === 0) {
+          return res.status(400).json({ message: "Select at least one evidence item to export" });
+        }
+
+        const items: any[] = [];
+        for (const id of evidenceIds) {
+          const item = await storage.getEvidenceById(tenantId, id);
+          if (item) items.push(item);
+        }
+
+        if (items.length === 0) {
+          return res.status(404).json({ message: "No evidence found" });
+        }
+
+        const auditLogs = await storage.getAuditLogsByTenant(tenantId, {
+          entityType: "evidence",
+        });
+        const relevantLogs = auditLogs.filter((log: any) =>
+          evidenceIds.includes(log.entityId)
+        );
+
+        const now = new Date();
+        const packetId = crypto.randomBytes(8).toString("hex");
+        const timestamp = now.toISOString();
+
+        const manifest = {
+          packetId,
+          exportedAt: timestamp,
+          exportedBy: userId,
+          tenantId,
+          itemCount: items.length,
+          items: items.map((item) => ({
+            id: item.id,
+            title: item.title,
+            fileName: item.fileName,
+            fileType: item.fileType,
+            fileSize: item.fileSize,
+            sha256: item.sha256,
+            createdAt: item.createdAt,
+            uploadedBy: item.uploadedByName || item.uploadedById,
+            client: item.clientName || null,
+            asset: item.assetName || null,
+            notes: item.notes,
+          })),
+          auditEventCount: relevantLogs.length,
+        };
+
+        const sha256Lines: string[] = [];
+        for (const item of items) {
+          if (item.sha256) {
+            sha256Lines.push(`${item.sha256}  evidence/${item.fileName}`);
+          }
+        }
+
+        res.setHeader("Content-Type", "application/zip");
+        res.setHeader(
+          "Content-Disposition",
+          `attachment; filename="evidence-packet-${packetId}.zip"`
+        );
+
+        const archive = archiver("zip", { zlib: { level: 6 } });
+        archive.on("error", (err: Error) => {
+          console.error("[evidence-export] Archive error:", err);
+          if (!res.headersSent) {
+            res.status(500).json({ message: "Export failed" });
+          }
+        });
+        archive.pipe(res);
+
+        archive.append(JSON.stringify(manifest, null, 2), { name: "packet/manifest.json" });
+
+        if (sha256Lines.length > 0) {
+          archive.append(sha256Lines.join("\n") + "\n", { name: "packet/sha256sums.txt" });
+        }
+
+        for (const item of items) {
+          try {
+            const buffer = await fileStorage.read(item.filePath);
+            archive.append(buffer, { name: `packet/evidence/${item.fileName}` });
+          } catch (err) {
+            console.error(`[evidence-export] Failed to read file ${item.filePath}:`, err);
+          }
+        }
+
+        if (relevantLogs.length > 0) {
+          archive.append(JSON.stringify(relevantLogs, null, 2), { name: "packet/audit/events.json" });
+        }
+
+        await archive.finalize();
+
+        await eventBus.emit({
+          type: "evidence.packet_exported",
+          tenantId,
+          actorUserId: userId,
+          entityType: "evidence_packet",
+          entityId: packetId,
+          details: { itemCount: items.length, evidenceIds },
+        });
+      } catch (error: any) {
+        console.error("[evidence-export] Error:", error);
+        if (!res.headersSent) {
+          res.status(500).json({ message: error.message });
+        }
+      }
+    }
+  );
 }

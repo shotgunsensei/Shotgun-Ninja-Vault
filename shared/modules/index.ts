@@ -1,27 +1,41 @@
-import type { ModuleDefinition, ModuleRegistry } from "./types";
+import type { VaultModuleManifest, ModuleRegistry } from "./types";
 
-export const coreModule: ModuleDefinition = {
+export const coreModule: VaultModuleManifest = {
   id: "core",
   name: "Core Platform",
   description: "Tenant management, user authentication, team roles, audit logging, and billing. Always enabled.",
   enabled: true,
   category: "core",
   version: "1.0.0",
-  navItems: [
-    { title: "Dashboard", url: "/", icon: "LayoutDashboard" },
-    { title: "Clients", url: "/clients", icon: "Users" },
-    { title: "Sites", url: "/sites", icon: "MapPin", roles: ["OWNER", "ADMIN", "TECH"] },
-    { title: "Assets", url: "/assets", icon: "Server", roles: ["OWNER", "ADMIN", "TECH"] },
-  ],
-  adminNavItems: [
-    { title: "Team", url: "/team", icon: "Building2", roles: ["OWNER", "ADMIN"] },
-    { title: "Client Access", url: "/client-access", icon: "KeyRound", roles: ["OWNER", "ADMIN"] },
-    { title: "Audit Log", url: "/audit", icon: "Shield", roles: ["OWNER", "ADMIN"] },
-    { title: "Settings", url: "/settings", icon: "Settings", roles: ["OWNER", "ADMIN", "TECH"] },
-  ],
+  server: {
+    mountPath: "/api",
+    routesFile: "server/modules/core/routes.ts",
+    emits: [
+      "tenant.created",
+      "client.created", "client.updated", "client.deleted",
+      "site.created", "site.updated", "site.deleted",
+      "asset.created", "asset.updated", "asset.deleted",
+      "member.invited", "member.role_changed", "member.removed",
+    ],
+  },
+  client: {
+    navItems: [
+      { title: "Dashboard", url: "/", icon: "LayoutDashboard" },
+      { title: "Clients", url: "/clients", icon: "Users" },
+      { title: "Sites", url: "/sites", icon: "MapPin", roles: ["OWNER", "ADMIN", "TECH"] },
+      { title: "Assets", url: "/assets", icon: "Server", roles: ["OWNER", "ADMIN", "TECH"] },
+    ],
+    adminNavItems: [
+      { title: "Team", url: "/team", icon: "Building2", roles: ["OWNER", "ADMIN"] },
+      { title: "Client Access", url: "/client-access", icon: "KeyRound", roles: ["OWNER", "ADMIN"] },
+      { title: "Audit Log", url: "/audit", icon: "Shield", roles: ["OWNER", "ADMIN"] },
+      { title: "Settings", url: "/settings", icon: "Settings", roles: ["OWNER", "ADMIN", "TECH"] },
+    ],
+  },
+  roles: ["OWNER", "ADMIN", "TECH", "CLIENT"],
 };
 
-export const evidenceModule: ModuleDefinition = {
+export const evidenceModule: VaultModuleManifest = {
   id: "evidence",
   name: "Evidence Locker",
   description: "Secure evidence file management with upload, tagging, search, preview, and SHA-256 deduplication.",
@@ -29,12 +43,19 @@ export const evidenceModule: ModuleDefinition = {
   category: "feature",
   version: "1.0.0",
   requiredPlan: "free",
-  navItems: [
-    { title: "Evidence", url: "/evidence", icon: "FileText" },
-  ],
+  server: {
+    mountPath: "/api/evidence",
+    routesFile: "server/modules/evidence/routes.ts",
+    emits: ["evidence.uploaded", "evidence.deleted"],
+  },
+  client: {
+    navItems: [
+      { title: "Evidence", url: "/evidence", icon: "FileText" },
+    ],
+  },
 };
 
-export const licenseModule: ModuleDefinition = {
+export const licenseModule: VaultModuleManifest = {
   id: "license",
   name: "License Server",
   description: "Issue and validate software license keys with activation tracking, rate-limited public API, and developer documentation.",
@@ -42,21 +63,55 @@ export const licenseModule: ModuleDefinition = {
   category: "feature",
   version: "1.0.0",
   requiredPlan: "free",
-  navItems: [
-    { title: "Licenses", url: "/licenses", icon: "Key" },
-  ],
+  server: {
+    mountPath: "/api/license",
+    routesFile: "server/modules/license/routes.ts",
+    emits: [
+      "license.product_created",
+      "license.key_issued", "license.key_revoked",
+      "license.activation",
+    ],
+  },
+  client: {
+    navItems: [
+      { title: "Licenses", url: "/licenses", icon: "Key" },
+    ],
+  },
+  roles: ["OWNER", "ADMIN"],
 };
 
-const allModules: ModuleDefinition[] = [coreModule, evidenceModule, licenseModule];
+export const webhooksModule: VaultModuleManifest = {
+  id: "webhooks",
+  name: "Webhooks",
+  description: "Outbound webhook delivery with HMAC signing, retry logic, and delivery logs. Integrates with Zapier, Make, n8n, or custom endpoints.",
+  enabled: true,
+  category: "feature",
+  version: "1.0.0",
+  requiredPlan: "free",
+  server: {
+    mountPath: "/api/webhooks",
+    routesFile: "server/modules/webhooks/routes.ts",
+    consumes: ["*"],
+    emits: ["webhook.created", "webhook.updated", "webhook.deleted"],
+  },
+  client: {
+    navItems: [
+      { title: "Webhooks", url: "/webhooks", icon: "Webhook", roles: ["OWNER", "ADMIN"] },
+    ],
+  },
+  roles: ["OWNER", "ADMIN"],
+};
+
+const allModules: VaultModuleManifest[] = [coreModule, evidenceModule, licenseModule, webhooksModule];
 
 export const moduleRegistry: ModuleRegistry = {
   modules: allModules,
 
-  getModule(id: string): ModuleDefinition | undefined {
+  getModule(id: string): VaultModuleManifest | undefined {
     return allModules.find((m) => m.id === id);
   },
 
-  getEnabledModules(): ModuleDefinition[] {
+  getEnabledModules(): VaultModuleManifest[] {
     return allModules.filter((m) => m.enabled);
   },
 
@@ -66,4 +121,4 @@ export const moduleRegistry: ModuleRegistry = {
   },
 };
 
-export type { ModuleDefinition, ModuleRegistry, ModuleNavItem } from "./types";
+export type { VaultModuleManifest, ModuleDefinition, ModuleRegistry, ModuleNavItem } from "./types";

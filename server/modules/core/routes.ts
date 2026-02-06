@@ -9,6 +9,7 @@ import {
   insertAssetSchema,
   insertTenantSchema,
 } from "@shared/schema";
+import { eventBus } from "../../core/events/bus";
 
 export function registerCoreRoutes(app: Express) {
   app.post("/api/tenants", isAuthenticated, requireUser(), async (req: any, res) => {
@@ -33,10 +34,10 @@ export function registerCoreRoutes(app: Express) {
       const tenant = await storage.createTenant({ name, slug });
       await storage.addMember(tenant.id, userId, "OWNER");
 
-      await storage.createAuditLog({
+      await eventBus.emit({
+        type: "create_tenant",
         tenantId: tenant.id,
-        userId,
-        action: "create_tenant",
+        actorUserId: userId,
         entityType: "tenant",
         entityId: tenant.id,
         details: { name, slug },
@@ -119,10 +120,10 @@ export function registerCoreRoutes(app: Express) {
           tenantId,
         });
 
-        await storage.createAuditLog({
+        await eventBus.emit({
+          type: "create_client",
           tenantId,
-          userId,
-          action: "create_client",
+          actorUserId: userId,
           entityType: "client",
           entityId: client.id,
           details: { name: parsed.data.name },
@@ -162,10 +163,10 @@ export function registerCoreRoutes(app: Express) {
           tenantId,
         });
 
-        await storage.createAuditLog({
+        await eventBus.emit({
+          type: "create_site",
           tenantId,
-          userId,
-          action: "create_site",
+          actorUserId: userId,
           entityType: "site",
           entityId: site.id,
           details: { name: parsed.data.name },
@@ -215,10 +216,10 @@ export function registerCoreRoutes(app: Express) {
           tenantId,
         });
 
-        await storage.createAuditLog({
+        await eventBus.emit({
+          type: "create_asset",
           tenantId,
-          userId,
-          action: "create_asset",
+          actorUserId: userId,
           entityType: "asset",
           entityId: asset.id,
           details: { name: parsed.data.name },
@@ -259,10 +260,10 @@ export function registerCoreRoutes(app: Express) {
 
         const { email, role } = parsed.data;
 
-        await storage.createAuditLog({
+        await eventBus.emit({
+          type: "invite_member",
           tenantId,
-          userId,
-          action: "invite_member",
+          actorUserId: userId,
           entityType: "member",
           details: { email, role },
         });
@@ -292,10 +293,10 @@ export function registerCoreRoutes(app: Express) {
 
         await storage.updateMemberRole(tenantId, req.params.id, parsed.data.role);
 
-        await storage.createAuditLog({
+        await eventBus.emit({
+          type: "change_role",
           tenantId,
-          userId,
-          action: "change_role",
+          actorUserId: userId,
           entityType: "member",
           entityId: req.params.id,
           details: { newRole: parsed.data.role },
@@ -310,8 +311,25 @@ export function registerCoreRoutes(app: Express) {
 
   app.get("/api/audit-logs", isAuthenticated, requireRole("OWNER", "ADMIN"), async (req: any, res) => {
     try {
-      const logs = await storage.getAuditLogsByTenant(req.tenantCtx.tenantId);
+      const { action, entityType, dateFrom, dateTo, userId } = req.query;
+      const filters: Record<string, string> = {};
+      if (action) filters.action = action as string;
+      if (entityType) filters.entityType = entityType as string;
+      if (dateFrom) filters.dateFrom = dateFrom as string;
+      if (dateTo) filters.dateTo = dateTo as string;
+      if (userId) filters.userId = userId as string;
+
+      const logs = await storage.getAuditLogsByTenant(req.tenantCtx.tenantId, Object.keys(filters).length > 0 ? filters : undefined);
       res.json(logs);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/audit-actions", isAuthenticated, requireRole("OWNER", "ADMIN"), async (req: any, res) => {
+    try {
+      const actions = await storage.getAuditActionTypes(req.tenantCtx.tenantId);
+      res.json(actions);
     } catch (error: any) {
       res.status(500).json({ message: error.message });
     }
@@ -354,10 +372,10 @@ export function registerCoreRoutes(app: Express) {
 
       const access = await storage.addClientAccess(tenantId, targetUserId, clientId, canUpload);
 
-      await storage.createAuditLog({
+      await eventBus.emit({
+        type: "grant_client_access",
         tenantId,
-        userId,
-        action: "grant_client_access",
+        actorUserId: userId,
         entityType: "client_access",
         entityId: access.id,
         details: { targetUserId, clientId, canUpload },
@@ -380,10 +398,10 @@ export function registerCoreRoutes(app: Express) {
 
       await storage.updateClientAccessCanUpload(tenantId, req.params.id, parsed.data.canUpload);
 
-      await storage.createAuditLog({
+      await eventBus.emit({
+        type: "update_client_access",
         tenantId,
-        userId,
-        action: "update_client_access",
+        actorUserId: userId,
         entityType: "client_access",
         entityId: req.params.id,
         details: { canUpload: parsed.data.canUpload },
@@ -401,10 +419,10 @@ export function registerCoreRoutes(app: Express) {
 
       await storage.removeClientAccess(tenantId, req.params.id);
 
-      await storage.createAuditLog({
+      await eventBus.emit({
+        type: "revoke_client_access",
         tenantId,
-        userId,
-        action: "revoke_client_access",
+        actorUserId: userId,
         entityType: "client_access",
         entityId: req.params.id,
       });

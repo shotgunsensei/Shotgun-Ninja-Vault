@@ -440,15 +440,60 @@ export const webhookEndpoints = pgTable(
     url: text("url").notNull(),
     secret: text("secret").notNull(),
     enabled: boolean("enabled").notNull().default(true),
+    eventTypes: text("event_types").array().notNull().default(sql`'{}'::text[]`),
+    description: text("description"),
     createdAt: timestamp("created_at").defaultNow(),
   },
   (table) => [index("idx_webhook_tenant").on(table.tenantId)]
 );
 
-export const webhookEndpointsRelations = relations(webhookEndpoints, ({ one }) => ({
+export const webhookEndpointsRelations = relations(webhookEndpoints, ({ one, many }) => ({
   tenant: one(tenants, {
     fields: [webhookEndpoints.tenantId],
     references: [tenants.id],
+  }),
+  deliveries: many(webhookDeliveries),
+}));
+
+export const webhookDeliveries = pgTable(
+  "webhook_deliveries",
+  {
+    id: varchar("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    tenantId: varchar("tenant_id")
+      .notNull()
+      .references(() => tenants.id, { onDelete: "cascade" }),
+    webhookEndpointId: varchar("webhook_endpoint_id")
+      .notNull()
+      .references(() => webhookEndpoints.id, { onDelete: "cascade" }),
+    eventType: text("event_type").notNull(),
+    payload: jsonb("payload").notNull(),
+    status: text("status").notNull().default("pending"),
+    responseCode: integer("response_code"),
+    responseBody: text("response_body"),
+    durationMs: integer("duration_ms"),
+    attempts: integer("attempts").notNull().default(0),
+    maxAttempts: integer("max_attempts").notNull().default(5),
+    nextRetryAt: timestamp("next_retry_at"),
+    completedAt: timestamp("completed_at"),
+    createdAt: timestamp("created_at").defaultNow(),
+  },
+  (table) => [
+    index("idx_webhook_delivery_tenant").on(table.tenantId),
+    index("idx_webhook_delivery_endpoint").on(table.webhookEndpointId),
+    index("idx_webhook_delivery_status").on(table.status, table.nextRetryAt),
+  ]
+);
+
+export const webhookDeliveriesRelations = relations(webhookDeliveries, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [webhookDeliveries.tenantId],
+    references: [tenants.id],
+  }),
+  webhookEndpoint: one(webhookEndpoints, {
+    fields: [webhookDeliveries.webhookEndpointId],
+    references: [webhookEndpoints.id],
   }),
 }));
 
@@ -497,6 +542,10 @@ export const insertWebhookEndpointSchema = createInsertSchema(webhookEndpoints).
   id: true,
   createdAt: true,
 });
+export const insertWebhookDeliverySchema = createInsertSchema(webhookDeliveries).omit({
+  id: true,
+  createdAt: true,
+});
 
 export type Tenant = typeof tenants.$inferSelect;
 export type InsertTenant = z.infer<typeof insertTenantSchema>;
@@ -524,3 +573,5 @@ export type LicenseActivation = typeof licenseActivations.$inferSelect;
 export type InsertLicenseActivation = z.infer<typeof insertLicenseActivationSchema>;
 export type WebhookEndpoint = typeof webhookEndpoints.$inferSelect;
 export type InsertWebhookEndpoint = z.infer<typeof insertWebhookEndpointSchema>;
+export type WebhookDelivery = typeof webhookDeliveries.$inferSelect;
+export type InsertWebhookDelivery = z.infer<typeof insertWebhookDeliverySchema>;

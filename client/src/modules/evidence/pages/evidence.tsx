@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { Link, useSearch } from "wouter";
 import { useState } from "react";
 import {
@@ -10,12 +10,17 @@ import {
   X,
   Image,
   File,
+  PackageOpen,
+  CheckSquare,
+  Square,
+  Loader2,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
   SelectContent,
@@ -24,6 +29,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { EvidencePreviewButton } from "@/components/evidence-preview";
+import { useToast } from "@/hooks/use-toast";
 import { formatDistanceToNow } from "date-fns";
 import type { EvidenceWithRelations } from "@/lib/types";
 import type { Client, Tag } from "@shared/schema";
@@ -44,12 +50,69 @@ export default function EvidencePage() {
   const searchString = useSearch();
   const params = new URLSearchParams(searchString);
   const initialQ = params.get("q") || "";
+  const { toast } = useToast();
 
   const [search, setSearch] = useState(initialQ);
   const [clientFilter, setClientFilter] = useState<string>("all");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [showFilters, setShowFilters] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [selectMode, setSelectMode] = useState(false);
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const selectAll = () => {
+    if (evidence) {
+      setSelectedIds(new Set(evidence.map((e) => e.id)));
+    }
+  };
+
+  const deselectAll = () => {
+    setSelectedIds(new Set());
+  };
+
+  const exportPacketMutation = useMutation({
+    mutationFn: async (evidenceIds: string[]) => {
+      const response = await fetch("/api/evidence/export-packet", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ evidenceIds }),
+        credentials: "include",
+      });
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.message || "Export failed");
+      }
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const disposition = response.headers.get("Content-Disposition") || "";
+      const match = disposition.match(/filename="?([^"]+)"?/);
+      const filename = match ? match[1] : "evidence-packet.zip";
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    },
+    onSuccess: () => {
+      toast({ title: "Export complete", description: `Exported ${selectedIds.size} evidence items as a ZIP packet.` });
+      setSelectedIds(new Set());
+      setSelectMode(false);
+    },
+    onError: (err: Error) => {
+      toast({ title: "Export failed", description: err.message, variant: "destructive" });
+    },
+  });
 
   const queryParams = new URLSearchParams();
   if (search) queryParams.set("q", search);
@@ -97,14 +160,69 @@ export default function EvidencePage() {
           </h1>
           <p className="text-sm text-muted-foreground">
             {evidence?.length || 0} evidence items
+            {selectMode && selectedIds.size > 0 && (
+              <span className="ml-1 font-medium">
+                ({selectedIds.size} selected)
+              </span>
+            )}
           </p>
         </div>
-        <Button asChild data-testid="button-upload-evidence-page">
-          <Link href="/evidence/upload">
-            <Upload className="w-4 h-4 mr-1" />
-            Upload Evidence
-          </Link>
-        </Button>
+        <div className="flex items-center gap-2 flex-wrap">
+          {selectMode ? (
+            <>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={selectedIds.size === (evidence?.length || 0) ? deselectAll : selectAll}
+                data-testid="button-select-all"
+              >
+                {selectedIds.size === (evidence?.length || 0) ? (
+                  <><CheckSquare className="w-4 h-4 mr-1" />Deselect All</>
+                ) : (
+                  <><Square className="w-4 h-4 mr-1" />Select All</>
+                )}
+              </Button>
+              <Button
+                disabled={selectedIds.size === 0 || exportPacketMutation.isPending}
+                onClick={() => exportPacketMutation.mutate(Array.from(selectedIds))}
+                data-testid="button-export-packet"
+              >
+                {exportPacketMutation.isPending ? (
+                  <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                ) : (
+                  <PackageOpen className="w-4 h-4 mr-1" />
+                )}
+                Export Packet
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => { setSelectMode(false); setSelectedIds(new Set()); }}
+                data-testid="button-cancel-select"
+              >
+                <X className="w-4 h-4 mr-1" />
+                Cancel
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button
+                variant="outline"
+                onClick={() => setSelectMode(true)}
+                data-testid="button-start-select"
+              >
+                <PackageOpen className="w-4 h-4 mr-1" />
+                Export
+              </Button>
+              <Button asChild data-testid="button-upload-evidence-page">
+                <Link href="/evidence/upload">
+                  <Upload className="w-4 h-4 mr-1" />
+                  Upload Evidence
+                </Link>
+              </Button>
+            </>
+          )}
+        </div>
       </div>
 
       <div className="flex gap-2 flex-wrap">
@@ -217,7 +335,15 @@ export default function EvidencePage() {
               <Card key={item.id} className="hover-elevate" data-testid={`card-evidence-${item.id}`}>
                 <CardContent className="p-4">
                   <div className="flex items-center justify-between gap-4">
-                    <Link href={`/evidence/${item.id}`} className="flex items-center gap-3 min-w-0 flex-1 cursor-pointer">
+                    {selectMode && (
+                      <Checkbox
+                        checked={selectedIds.has(item.id)}
+                        onCheckedChange={() => toggleSelect(item.id)}
+                        className="flex-shrink-0"
+                        data-testid={`checkbox-evidence-${item.id}`}
+                      />
+                    )}
+                    <Link href={selectMode ? "#" : `/evidence/${item.id}`} className="flex items-center gap-3 min-w-0 flex-1 cursor-pointer" onClick={selectMode ? (e: any) => { e.preventDefault(); toggleSelect(item.id); } : undefined}>
                       <div className="w-9 h-9 rounded-md bg-muted flex items-center justify-center flex-shrink-0">
                         <IconComp className="w-4 h-4 text-muted-foreground" />
                       </div>
