@@ -13,6 +13,7 @@ import {
   Shield,
   Activity,
   ClipboardList,
+  Home,
 } from "lucide-react";
 import logoImage from "@assets/ShotgunNinjaVaulticon_1770412982737.png";
 import { useLocation, Link } from "wouter";
@@ -51,14 +52,23 @@ export function AppSidebar({ role }: AppSidebarProps) {
   const isClient = role === "CLIENT";
   const isAdminOrOwner = role === "OWNER" || role === "ADMIN";
 
-  const mainNavItems = [
-    { title: "Dashboard", url: "/", icon: LayoutDashboard, show: true },
-    { title: "Clients", url: "/clients", icon: Users, show: true },
-    { title: "Sites", url: "/sites", icon: MapPin, show: !isClient },
-    { title: "Assets", url: "/assets", icon: Server, show: !isClient },
-    { title: "Evidence", url: "/evidence", icon: FileText, show: true },
-    { title: "Reports", url: "/reports", icon: ClipboardList, show: !isClient },
-  ].filter((item) => item.show);
+  const portalNavItems = isClient
+    ? [
+        { title: "Portal", url: "/portal", icon: Home, show: true },
+        { title: "My Evidence", url: "/portal/evidence", icon: FileText, show: true },
+      ].filter((item) => item.show)
+    : [];
+
+  const mainNavItems = isClient
+    ? []
+    : [
+        { title: "Dashboard", url: "/", icon: LayoutDashboard, show: true },
+        { title: "Clients", url: "/clients", icon: Users, show: true },
+        { title: "Sites", url: "/sites", icon: MapPin, show: true },
+        { title: "Assets", url: "/assets", icon: Server, show: true },
+        { title: "Evidence", url: "/evidence", icon: FileText, show: true },
+        { title: "Reports", url: "/reports", icon: ClipboardList, show: true },
+      ].filter((item) => item.show);
 
   const licenseNavItems = [
     { title: "Licenses", url: "/licenses", icon: Key, show: isAdminOrOwner },
@@ -100,6 +110,33 @@ export function AppSidebar({ role }: AppSidebarProps) {
         </Link>
       </SidebarHeader>
       <SidebarContent>
+        {portalNavItems.length > 0 && (
+          <SidebarGroup>
+            <SidebarGroupLabel>Client Portal</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {portalNavItems.map((item) => (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={
+                        item.url === "/portal"
+                          ? location === "/portal"
+                          : location.startsWith(item.url)
+                      }
+                    >
+                      <Link href={item.url} data-testid={`nav-${item.title.toLowerCase().replace(/\s+/g, "-")}`}>
+                        <item.icon className="w-4 h-4" />
+                        <span>{item.title}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
+        {mainNavItems.length > 0 && (
         <SidebarGroup>
           <SidebarGroupLabel>Navigation</SidebarGroupLabel>
           <SidebarGroupContent>
@@ -124,6 +161,7 @@ export function AppSidebar({ role }: AppSidebarProps) {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+        )}
         {licenseNavItems.length > 0 && (
           <SidebarGroup>
             <SidebarGroupLabel>License Server</SidebarGroupLabel>

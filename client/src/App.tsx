@@ -1,4 +1,4 @@
-import { Switch, Route } from "wouter";
+import { Switch, Route, Redirect } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider, useQuery } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -38,6 +38,7 @@ import {
 import { WebhooksPage } from "@/modules/webhooks";
 import { StatusAdminPage, PublicStatusPage } from "@/modules/status";
 import { ReportsPage } from "@/modules/reports";
+import { PortalHomePage, PortalClientDetailPage, PortalEvidencePage } from "@/modules/portal";
 
 import NotFound from "@/pages/not-found";
 
@@ -90,14 +91,21 @@ function AuthenticatedApp() {
           </header>
           <main className="flex-1 overflow-auto">
             <Switch>
-              <Route path="/" component={DashboardPage} />
-              <Route path="/clients" component={ClientsPage} />
-              <Route path="/clients/:id" component={ClientDetailPage} />
+              {isClient ? (
+                <Route path="/">{() => <Redirect to="/portal" />}</Route>
+              ) : (
+                <Route path="/" component={DashboardPage} />
+              )}
+              {isClient && <Route path="/portal" component={PortalHomePage} />}
+              {isClient && <Route path="/portal/clients/:id" component={PortalClientDetailPage} />}
+              {isClient && <Route path="/portal/evidence" component={PortalEvidencePage} />}
+              {!isClient && <Route path="/clients" component={ClientsPage} />}
+              {!isClient && <Route path="/clients/:id" component={ClientDetailPage} />}
               {!isClient && <Route path="/sites" component={SitesPage} />}
               {!isClient && <Route path="/assets" component={AssetsPage} />}
-              <Route path="/evidence" component={EvidencePage} />
-              <Route path="/evidence/upload" component={EvidenceUploadPage} />
-              <Route path="/evidence/:id" component={EvidenceDetailPage} />
+              {!isClient && <Route path="/evidence" component={EvidencePage} />}
+              {!isClient && <Route path="/evidence/upload" component={EvidenceUploadPage} />}
+              {!isClient && <Route path="/evidence/:id" component={EvidenceDetailPage} />}
               {isAdminOrOwner && <Route path="/team" component={TeamPage} />}
               {isAdminOrOwner && <Route path="/audit" component={AuditPage} />}
               {isAdminOrOwner && <Route path="/client-access" component={ClientAccessPage} />}

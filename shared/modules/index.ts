@@ -151,7 +151,29 @@ export const reportsModule: VaultModuleManifest = {
   roles: ["OWNER", "ADMIN", "TECH"],
 };
 
-const allModules: VaultModuleManifest[] = [coreModule, evidenceModule, licenseModule, webhooksModule, statusModule, reportsModule];
+export const portalModule: VaultModuleManifest = {
+  id: "portal",
+  name: "Client Portal",
+  description: "Scoped portal experience for CLIENT role users with read-only access to assigned clients and their evidence.",
+  enabled: true,
+  category: "feature",
+  version: "1.0.0",
+  requiredPlan: "free",
+  server: {
+    mountPath: "/api/portal",
+    routesFile: "server/modules/portal/routes.ts",
+    emits: [],
+  },
+  client: {
+    navItems: [
+      { title: "Portal", url: "/portal", icon: "Home", roles: ["CLIENT"] },
+      { title: "My Evidence", url: "/portal/evidence", icon: "FileText", roles: ["CLIENT"] },
+    ],
+  },
+  roles: ["CLIENT"],
+};
+
+const allModules: VaultModuleManifest[] = [coreModule, evidenceModule, licenseModule, webhooksModule, statusModule, reportsModule, portalModule];
 
 export const moduleRegistry: ModuleRegistry = {
   modules: allModules,

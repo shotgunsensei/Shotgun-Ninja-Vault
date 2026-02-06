@@ -1,0 +1,54 @@
+Implement the MSP CLIENT PORTAL BUNDLES module to provide a scoped portal experience for CLIENT role users, using existing client access assignments.
+
+Assumptions:
+- core already has clientUserAssignments (client access mapping).
+- roles include CLIENT.
+
+Requirements:
+- Add client module folder: client/src/modules/portal/
+  - pages:
+    - /portal (client home)
+    - /portal/clients/:id (client detail - read-only)
+    - /portal/evidence (shows evidence items filtered to allowed clients/sites/assets)
+- Add server module folder: server/modules/portal/
+  - routes.ts
+- Add module manifest to shared/modules/index.ts:
+  - id: "portal"
+  - nav item visible only to CLIENT: "Portal" -> /portal
+
+Server routes (auth required, role CLIENT allowed):
+- GET /api/portal/me
+  - returns user info + role + tenant summary
+- GET /api/portal/clients
+  - returns only clients assigned to this user (via clientUserAssignments)
+- GET /api/portal/clients/:id
+  - returns client if assigned, otherwise 403
+- GET /api/portal/evidence
+  - returns evidence items that match allowed clientId/siteId/assetId scope.
+  - If evidence items currently do not carry these foreign keys, add optional columns to evidenceItems:
+    - clientId (uuid nullable fk clients)
+    - siteId (uuid nullable fk sites)
+    - assetId (uuid nullable fk assets)
+  - Update evidence upload flow UI to allow tagging evidence to client/site/asset (only for TECH/ADMIN/OWNER). CLIENT cannot change associations.
+
+Client UX:
+- If role is CLIENT:
+  - default landing should redirect to /portal (not /)
+  - nav should hide admin/tech modules
+- /portal shows:
+  - assigned clients list
+  - recent evidence accessible to them
+- /portal/evidence page:
+  - filter by client
+  - search by filename/tag
+- All portal endpoints must enforce tenant isolation + assignment checks.
+
+Events:
+- When evidence association is set/changed, emit:
+  - evidence.associated (with entity ids)
+
+Acceptance criteria:
+- CLIENT users see only Portal in nav
+- CLIENT cannot access /clients, /assets, /licenses, etc. (enforced server-side already by role checks; ensure UI routing also guards)
+- Evidence upload now supports linking to client/site/asset and portal evidence respects it
+- List files changed and any manual steps at end.
