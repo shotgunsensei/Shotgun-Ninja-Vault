@@ -100,7 +100,12 @@ export default function EvidenceUploadPage() {
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/evidence"] });
+      queryClient.invalidateQueries({
+        predicate: (query) =>
+          Array.isArray(query.queryKey) &&
+          typeof query.queryKey[0] === "string" &&
+          query.queryKey[0].startsWith("/api/evidence"),
+      });
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
       queryClient.invalidateQueries({ queryKey: ["/api/tags"] });
       toast({ title: "Evidence uploaded successfully" });

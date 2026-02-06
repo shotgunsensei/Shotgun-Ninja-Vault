@@ -253,6 +253,7 @@ export const evidenceItems = pgTable(
     fileType: text("file_type").notNull(),
     fileSize: integer("file_size").notNull(),
     filePath: text("file_path").notNull(),
+    sha256: text("sha256"),
     tagIds: text("tag_ids").array(),
     uploadedById: varchar("uploaded_by_id").references(() => usersTable.id),
     createdAt: timestamp("created_at").defaultNow(),
@@ -260,6 +261,7 @@ export const evidenceItems = pgTable(
   (table) => [
     index("idx_evidence_tenant").on(table.tenantId),
     index("idx_evidence_client").on(table.clientId),
+    index("idx_evidence_sha256").on(table.sha256),
   ]
 );
 

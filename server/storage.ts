@@ -25,7 +25,17 @@ import {
 } from "@shared/schema";
 import { users } from "@shared/models/auth";
 import { db } from "./db";
-import { eq, and, or, ilike, desc, sql, inArray } from "drizzle-orm";
+import { eq, and, or, ilike, desc, sql, inArray, gte, lte } from "drizzle-orm";
+
+export interface SearchFilters {
+  query?: string;
+  clientId?: string;
+  assetId?: string;
+  tag?: string;
+  dateFrom?: string;
+  dateTo?: string;
+  uploadedBy?: string;
+}
 
 export interface IStorage {
   createTenant(data: InsertTenant): Promise<Tenant>;
@@ -36,6 +46,7 @@ export interface IStorage {
   getMembersByTenant(tenantId: string): Promise<any[]>;
   getUserMembership(userId: string): Promise<{ tenant: Tenant; role: string } | undefined>;
   getMemberRole(tenantId: string, userId: string): Promise<string | undefined>;
+  updateMemberRole(tenantId: string, memberId: string, role: string): Promise<void>;
 
   createClient(data: InsertClient): Promise<Client>;
   getClientsByTenant(tenantId: string): Promise<Client[]>;
@@ -50,8 +61,9 @@ export interface IStorage {
   getAssetById(tenantId: string, id: string): Promise<Asset | undefined>;
 
   createEvidence(data: InsertEvidence): Promise<EvidenceItem>;
-  getEvidenceByTenant(tenantId: string, query?: string, clientId?: string): Promise<any[]>;
+  searchEvidence(tenantId: string, filters: SearchFilters): Promise<any[]>;
   getEvidenceById(tenantId: string, id: string): Promise<any>;
+  getEvidenceBySha256(tenantId: string, sha256: string): Promise<EvidenceItem | undefined>;
   deleteEvidence(tenantId: string, id: string): Promise<void>;
   getRecentEvidence(tenantId: string, limit?: number): Promise<any[]>;
   getEvidenceByClient(tenantId: string, clientId: string): Promise<EvidenceItem[]>;
@@ -158,6 +170,13 @@ export class DatabaseStorage implements IStorage {
     return member?.role;
   }
 
+  async updateMemberRole(tenantId: string, memberId: string, role: string): Promise<void> {
+    await db
+      .update(tenantMembers)
+      .set({ role: role as any })
+      .where(and(eq(tenantMembers.id, memberId), eq(tenantMembers.tenantId, tenantId)));
+  }
+
   async createClient(data: InsertClient): Promise<Client> {
     const [client] = await db.insert(clients).values(data).returning();
     return client;
@@ -246,18 +265,49 @@ export class DatabaseStorage implements IStorage {
     return item;
   }
 
-  async getEvidenceByTenant(
-    tenantId: string,
-    query?: string,
-    clientId?: string
-  ): Promise<any[]> {
-    let conditions = [eq(evidenceItems.tenantId, tenantId)];
+  async searchEvidence(tenantId: string, filters: SearchFilters): Promise<any[]> {
+    let conditions: any[] = [eq(evidenceItems.tenantId, tenantId)];
 
-    if (clientId) {
-      conditions.push(eq(evidenceItems.clientId, clientId));
+    if (filters.clientId) {
+      conditions.push(eq(evidenceItems.clientId, filters.clientId));
     }
 
-    const baseQuery = db
+    if (filters.assetId) {
+      conditions.push(eq(evidenceItems.assetId, filters.assetId));
+    }
+
+    if (filters.uploadedBy) {
+      conditions.push(eq(evidenceItems.uploadedById, filters.uploadedBy));
+    }
+
+    if (filters.dateFrom) {
+      conditions.push(gte(evidenceItems.createdAt, new Date(filters.dateFrom)));
+    }
+
+    if (filters.dateTo) {
+      const endDate = new Date(filters.dateTo);
+      endDate.setHours(23, 59, 59, 999);
+      conditions.push(lte(evidenceItems.createdAt, endDate));
+    }
+
+    if (filters.query) {
+      const searchTerm = filters.query.trim();
+      const tsQuery = searchTerm.split(/\s+/).filter(Boolean).join(" & ");
+      conditions.push(
+        sql`(
+          to_tsvector('english', coalesce(${evidenceItems.title}, '') || ' ' || coalesce(${evidenceItems.notes}, '') || ' ' || coalesce(${evidenceItems.fileName}, ''))
+          @@ to_tsquery('english', ${tsQuery + ":*"})
+          OR ${evidenceItems.title} ILIKE ${"%" + searchTerm + "%"}
+          OR ${evidenceItems.notes} ILIKE ${"%" + searchTerm + "%"}
+          OR ${evidenceItems.fileName} ILIKE ${"%" + searchTerm + "%"}
+          OR ${clients.name} ILIKE ${"%" + searchTerm + "%"}
+          OR ${assets.name} ILIKE ${"%" + searchTerm + "%"}
+          OR ${sites.name} ILIKE ${"%" + searchTerm + "%"}
+        )`
+      );
+    }
+
+    let results = await db
       .select({
         id: evidenceItems.id,
         tenantId: evidenceItems.tenantId,
@@ -270,6 +320,7 @@ export class DatabaseStorage implements IStorage {
         fileType: evidenceItems.fileType,
         fileSize: evidenceItems.fileSize,
         filePath: evidenceItems.filePath,
+        sha256: evidenceItems.sha256,
         tagIds: evidenceItems.tagIds,
         uploadedById: evidenceItems.uploadedById,
         createdAt: evidenceItems.createdAt,
@@ -284,19 +335,15 @@ export class DatabaseStorage implements IStorage {
       .where(and(...conditions))
       .orderBy(desc(evidenceItems.createdAt));
 
-    let results = await baseQuery;
-
-    if (query) {
-      const q = query.toLowerCase();
-      results = results.filter(
-        (r) =>
-          r.title.toLowerCase().includes(q) ||
-          r.notes?.toLowerCase().includes(q) ||
-          r.fileName.toLowerCase().includes(q) ||
-          r.clientName?.toLowerCase().includes(q) ||
-          r.assetName?.toLowerCase().includes(q) ||
-          r.siteName?.toLowerCase().includes(q)
-      );
+    if (filters.tag) {
+      const tagRecord = await this.getTagByName(tenantId, filters.tag);
+      if (tagRecord) {
+        results = results.filter(
+          (r) => r.tagIds && r.tagIds.includes(tagRecord.id)
+        );
+      } else {
+        return [];
+      }
     }
 
     return results;
@@ -316,6 +363,7 @@ export class DatabaseStorage implements IStorage {
         fileType: evidenceItems.fileType,
         fileSize: evidenceItems.fileSize,
         filePath: evidenceItems.filePath,
+        sha256: evidenceItems.sha256,
         tagIds: evidenceItems.tagIds,
         uploadedById: evidenceItems.uploadedById,
         createdAt: evidenceItems.createdAt,
@@ -347,6 +395,14 @@ export class DatabaseStorage implements IStorage {
         .join(" ") || undefined,
       tagNames,
     };
+  }
+
+  async getEvidenceBySha256(tenantId: string, sha256: string): Promise<EvidenceItem | undefined> {
+    const [result] = await db
+      .select()
+      .from(evidenceItems)
+      .where(and(eq(evidenceItems.tenantId, tenantId), eq(evidenceItems.sha256, sha256)));
+    return result;
   }
 
   async deleteEvidence(tenantId: string, id: string): Promise<void> {
@@ -438,7 +494,7 @@ export class DatabaseStorage implements IStorage {
       .leftJoin(users, eq(auditLogs.userId, users.id))
       .where(eq(auditLogs.tenantId, tenantId))
       .orderBy(desc(auditLogs.createdAt))
-      .limit(100);
+      .limit(200);
 
     return result.map((r) => ({
       ...r,

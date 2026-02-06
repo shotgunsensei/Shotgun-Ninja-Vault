@@ -4,8 +4,10 @@ import { storage } from "./storage";
 import { fileStorage } from "./fileStorage";
 import { isAuthenticated } from "./replit_integrations/auth";
 import { setupAuth, registerAuthRoutes } from "./replit_integrations/auth";
+import { requireUser, requireTenant, requireRole, requireClientAccess } from "./authz";
 import multer from "multer";
 import path from "path";
+import crypto from "crypto";
 import { z } from "zod";
 import {
   insertClientSchema,
@@ -14,65 +16,32 @@ import {
   insertTenantSchema,
 } from "@shared/schema";
 
+const ALLOWED_EXTENSIONS = ["png", "jpg", "jpeg", "pdf", "txt", "log", "csv", "json"];
+
 const ALLOWED_MIME_TYPES = [
   "image/png",
   "image/jpeg",
-  "image/gif",
-  "image/webp",
   "application/pdf",
   "text/plain",
   "text/csv",
   "application/json",
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-  "application/zip",
-  "application/x-tar",
-  "application/gzip",
   "application/octet-stream",
 ];
 
+const MAX_UPLOAD_MB = parseInt(process.env.MAX_UPLOAD_MB || "25", 10);
+const MAX_UPLOAD_BYTES = MAX_UPLOAD_MB * 1024 * 1024;
+
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 50 * 1024 * 1024 },
+  limits: { fileSize: MAX_UPLOAD_BYTES },
   fileFilter: (_req, file, cb) => {
-    if (ALLOWED_MIME_TYPES.includes(file.mimetype)) {
-      cb(null, true);
-    } else {
-      cb(new Error(`File type ${file.mimetype} is not allowed`));
+    const ext = path.extname(file.originalname).toLowerCase().replace(".", "");
+    if (!ALLOWED_EXTENSIONS.includes(ext)) {
+      return cb(new Error(`File extension .${ext} is not allowed. Allowed: ${ALLOWED_EXTENSIONS.join(", ")}`));
     }
+    cb(null, true);
   },
 });
-
-function getUserId(req: any): string {
-  return req.user?.claims?.sub;
-}
-
-async function getTenantContext(req: any) {
-  const userId = getUserId(req);
-  if (!userId) return null;
-  const membership = await storage.getUserMembership(userId);
-  if (!membership) return null;
-  return { tenantId: membership.tenant.id, role: membership.role, userId };
-}
-
-function requireRole(...roles: string[]) {
-  return async (req: any, res: any, next: any) => {
-    const ctx = await getTenantContext(req);
-    if (!ctx) return res.status(403).json({ message: "No tenant membership" });
-    if (!roles.includes(ctx.role)) {
-      return res.status(403).json({ message: "Insufficient permissions" });
-    }
-    req.tenantCtx = ctx;
-    next();
-  };
-}
-
-async function attachTenantCtx(req: any, res: any, next: any) {
-  const ctx = await getTenantContext(req);
-  if (!ctx) return res.status(403).json({ message: "No tenant membership" });
-  req.tenantCtx = ctx;
-  next();
-}
 
 export async function registerRoutes(
   httpServer: Server,
@@ -81,7 +50,7 @@ export async function registerRoutes(
   await setupAuth(app);
   registerAuthRoutes(app);
 
-  app.post("/api/tenants", isAuthenticated, async (req: any, res) => {
+  app.post("/api/tenants", isAuthenticated, requireUser(), async (req: any, res) => {
     try {
       const parsed = insertTenantSchema.pick({ name: true, slug: true }).safeParse(req.body);
       if (!parsed.success) {
@@ -94,7 +63,7 @@ export async function registerRoutes(
         return res.status(400).json({ message: "Slug already taken" });
       }
 
-      const userId = getUserId(req);
+      const userId = req.userId;
       const existingMembership = await storage.getUserMembership(userId);
       if (existingMembership) {
         return res.status(400).json({ message: "You already belong to an organization" });
@@ -109,6 +78,7 @@ export async function registerRoutes(
         action: "create_tenant",
         entityType: "tenant",
         entityId: tenant.id,
+        details: { name, slug },
       });
 
       res.json(tenant);
@@ -117,10 +87,9 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/tenant", isAuthenticated, async (req: any, res) => {
+  app.get("/api/tenant", isAuthenticated, requireUser(), async (req: any, res) => {
     try {
-      const userId = getUserId(req);
-      const membership = await storage.getUserMembership(userId);
+      const membership = await storage.getUserMembership(req.userId);
       if (!membership) return res.status(404).json({ message: "No tenant" });
       res.json({ tenant: membership.tenant, role: membership.role });
     } catch (error: any) {
@@ -128,7 +97,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/dashboard", isAuthenticated, attachTenantCtx, async (req: any, res) => {
+  app.get("/api/dashboard", isAuthenticated, requireTenant(), async (req: any, res) => {
     try {
       const stats = await storage.getDashboardStats(req.tenantCtx.tenantId);
       res.json(stats);
@@ -137,7 +106,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/clients", isAuthenticated, attachTenantCtx, async (req: any, res) => {
+  app.get("/api/clients", isAuthenticated, requireTenant(), async (req: any, res) => {
     try {
       const { tenantId, role, userId } = req.tenantCtx;
 
@@ -154,17 +123,9 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/clients/:id", isAuthenticated, attachTenantCtx, async (req: any, res) => {
+  app.get("/api/clients/:id", isAuthenticated, requireClientAccess("id"), async (req: any, res) => {
     try {
-      const { tenantId, role, userId } = req.tenantCtx;
-
-      if (role === "CLIENT") {
-        const allowedIds = await storage.getClientIdsForUser(userId);
-        if (!allowedIds.includes(req.params.id)) {
-          return res.status(403).json({ message: "Access denied" });
-        }
-      }
-
+      const { tenantId } = req.tenantCtx;
       const client = await storage.getClientDetail(tenantId, req.params.id);
       if (!client) return res.status(404).json({ message: "Client not found" });
       res.json(client);
@@ -203,6 +164,7 @@ export async function registerRoutes(
           action: "create_client",
           entityType: "client",
           entityId: client.id,
+          details: { name: parsed.data.name },
         });
 
         res.json(client);
@@ -212,7 +174,7 @@ export async function registerRoutes(
     }
   );
 
-  app.get("/api/sites", isAuthenticated, attachTenantCtx, async (req: any, res) => {
+  app.get("/api/sites", isAuthenticated, requireTenant(), async (req: any, res) => {
     try {
       const sites = await storage.getSitesByTenant(req.tenantCtx.tenantId);
       res.json(sites);
@@ -245,6 +207,7 @@ export async function registerRoutes(
           action: "create_site",
           entityType: "site",
           entityId: site.id,
+          details: { name: parsed.data.name },
         });
 
         res.json(site);
@@ -254,7 +217,7 @@ export async function registerRoutes(
     }
   );
 
-  app.get("/api/assets", isAuthenticated, attachTenantCtx, async (req: any, res) => {
+  app.get("/api/assets", isAuthenticated, requireTenant(), async (req: any, res) => {
     try {
       const assets = await storage.getAssetsByTenant(req.tenantCtx.tenantId);
       res.json(assets);
@@ -263,7 +226,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/assets/:id", isAuthenticated, attachTenantCtx, async (req: any, res) => {
+  app.get("/api/assets/:id", isAuthenticated, requireTenant(), async (req: any, res) => {
     try {
       const asset = await storage.getAssetById(req.tenantCtx.tenantId, req.params.id);
       if (!asset) return res.status(404).json({ message: "Asset not found" });
@@ -297,6 +260,7 @@ export async function registerRoutes(
           action: "create_asset",
           entityType: "asset",
           entityId: asset.id,
+          details: { name: parsed.data.name },
         });
 
         res.json(asset);
@@ -306,18 +270,24 @@ export async function registerRoutes(
     }
   );
 
-  app.get("/api/evidence", isAuthenticated, attachTenantCtx, async (req: any, res) => {
+  app.get("/api/evidence", isAuthenticated, requireTenant(), async (req: any, res) => {
     try {
       const { tenantId, role, userId } = req.tenantCtx;
-      const { q, clientId } = req.query;
+      const { q, clientId, assetId, tag, dateFrom, dateTo, uploadedBy } = req.query;
 
-      let evidence;
+      let evidence = await storage.searchEvidence(tenantId, {
+        query: q as string,
+        clientId: clientId as string,
+        assetId: assetId as string,
+        tag: tag as string,
+        dateFrom: dateFrom as string,
+        dateTo: dateTo as string,
+        uploadedBy: uploadedBy as string,
+      });
+
       if (role === "CLIENT") {
         const allowedIds = await storage.getClientIdsForUser(userId);
-        evidence = await storage.getEvidenceByTenant(tenantId, q as string, clientId as string);
         evidence = evidence.filter((e: any) => e.clientId && allowedIds.includes(e.clientId));
-      } else {
-        evidence = await storage.getEvidenceByTenant(tenantId, q as string, clientId as string);
       }
 
       res.json(evidence);
@@ -326,7 +296,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/evidence/:id", isAuthenticated, attachTenantCtx, async (req: any, res) => {
+  app.get("/api/evidence/:id", isAuthenticated, requireTenant(), async (req: any, res) => {
     try {
       const { tenantId, role, userId } = req.tenantCtx;
       const item = await storage.getEvidenceById(tenantId, req.params.id);
@@ -348,7 +318,7 @@ export async function registerRoutes(
   app.get(
     "/api/evidence/:id/download",
     isAuthenticated,
-    attachTenantCtx,
+    requireTenant(),
     async (req: any, res) => {
       try {
         const { tenantId, role, userId } = req.tenantCtx;
@@ -378,15 +348,11 @@ export async function registerRoutes(
   app.post(
     "/api/evidence/upload",
     isAuthenticated,
-    attachTenantCtx,
+    requireRole("OWNER", "ADMIN", "TECH"),
     upload.single("file"),
     async (req: any, res) => {
       try {
-        const { tenantId, role, userId } = req.tenantCtx;
-
-        if (role === "CLIENT") {
-          return res.status(403).json({ message: "Clients cannot upload evidence" });
-        }
+        const { tenantId, userId } = req.tenantCtx;
 
         const tenant = await storage.getTenantById(tenantId);
         const stats = await storage.getDashboardStats(tenantId);
@@ -397,12 +363,22 @@ export async function registerRoutes(
         const file = req.file;
         if (!file) return res.status(400).json({ message: "No file uploaded" });
 
+        const sha256 = crypto.createHash("sha256").update(file.buffer).digest("hex");
+
+        const duplicate = await storage.getEvidenceBySha256(tenantId, sha256);
+        if (duplicate) {
+          return res.status(409).json({
+            message: `Duplicate file detected. This file already exists as "${duplicate.title}".`,
+            existingId: duplicate.id,
+          });
+        }
+
         const originalName = file.originalname.replace(/[^\w.\-]/g, "_");
         if (originalName.includes("..") || originalName.includes("/")) {
           return res.status(400).json({ message: "Invalid filename" });
         }
 
-        const filePath = await fileStorage.save(originalName, file.buffer);
+        const filePath = await fileStorage.save(originalName, file.buffer, tenantId);
 
         let tagIds: string[] = [];
         if (req.body.tagIds) {
@@ -438,6 +414,7 @@ export async function registerRoutes(
           fileType: file.mimetype,
           fileSize: file.size,
           filePath,
+          sha256,
           tagIds: tagIds.length > 0 ? tagIds : null,
           uploadedById: userId,
         });
@@ -448,7 +425,7 @@ export async function registerRoutes(
           action: "upload_evidence",
           entityType: "evidence",
           entityId: evidence.id,
-          details: { fileName: file.originalname, fileSize: file.size },
+          details: { fileName: file.originalname, fileSize: file.size, sha256 },
         });
 
         res.json(evidence);
@@ -468,8 +445,8 @@ export async function registerRoutes(
         const item = await storage.getEvidenceById(tenantId, req.params.id);
         if (!item) return res.status(404).json({ message: "Evidence not found" });
 
-        await fileStorage.delete(item.filePath);
         await storage.deleteEvidence(tenantId, req.params.id);
+        await fileStorage.delete(item.filePath);
 
         await storage.createAuditLog({
           tenantId,
@@ -487,7 +464,7 @@ export async function registerRoutes(
     }
   );
 
-  app.get("/api/tags", isAuthenticated, attachTenantCtx, async (req: any, res) => {
+  app.get("/api/tags", isAuthenticated, requireTenant(), async (req: any, res) => {
     try {
       const tags = await storage.getTagsByTenant(req.tenantCtx.tenantId);
       res.json(tags);
@@ -496,7 +473,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/members", isAuthenticated, attachTenantCtx, async (req: any, res) => {
+  app.get("/api/members", isAuthenticated, requireTenant(), async (req: any, res) => {
     try {
       const members = await storage.getMembersByTenant(req.tenantCtx.tenantId);
       res.json(members);
@@ -512,15 +489,17 @@ export async function registerRoutes(
     async (req: any, res) => {
       try {
         const { tenantId, userId } = req.tenantCtx;
-        const { email, role } = req.body;
+        const inviteSchema = z.object({
+          email: z.string().email(),
+          role: z.enum(["ADMIN", "TECH", "CLIENT"]),
+        });
 
-        if (!email || !role) {
-          return res.status(400).json({ message: "Email and role are required" });
+        const parsed = inviteSchema.safeParse(req.body);
+        if (!parsed.success) {
+          return res.status(400).json({ message: parsed.error.errors[0]?.message || "Invalid input" });
         }
 
-        if (!["ADMIN", "TECH", "CLIENT"].includes(role)) {
-          return res.status(400).json({ message: "Invalid role" });
-        }
+        const { email, role } = parsed.data;
 
         await storage.createAuditLog({
           tenantId,
@@ -531,6 +510,40 @@ export async function registerRoutes(
         });
 
         res.json({ success: true, message: `Invite sent to ${email} as ${role}` });
+      } catch (error: any) {
+        res.status(500).json({ message: error.message });
+      }
+    }
+  );
+
+  app.patch(
+    "/api/members/:id/role",
+    isAuthenticated,
+    requireRole("OWNER", "ADMIN"),
+    async (req: any, res) => {
+      try {
+        const { tenantId, userId } = req.tenantCtx;
+        const roleSchema = z.object({
+          role: z.enum(["ADMIN", "TECH", "CLIENT"]),
+        });
+
+        const parsed = roleSchema.safeParse(req.body);
+        if (!parsed.success) {
+          return res.status(400).json({ message: parsed.error.errors[0]?.message || "Invalid input" });
+        }
+
+        await storage.updateMemberRole(tenantId, req.params.id, parsed.data.role);
+
+        await storage.createAuditLog({
+          tenantId,
+          userId,
+          action: "change_role",
+          entityType: "member",
+          entityId: req.params.id,
+          details: { newRole: parsed.data.role },
+        });
+
+        res.json({ success: true });
       } catch (error: any) {
         res.status(500).json({ message: error.message });
       }

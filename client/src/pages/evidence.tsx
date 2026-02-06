@@ -1,14 +1,15 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link, useSearch } from "wouter";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import {
   FileText,
   Search,
   Upload,
   Clock,
-  Download,
   Filter,
   X,
+  Image,
+  File,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -22,6 +23,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { EvidencePreviewButton } from "@/components/evidence-preview";
 import { formatDistanceToNow } from "date-fns";
 import type { EvidenceWithRelations } from "@/lib/types";
 import type { Client, Tag } from "@shared/schema";
@@ -32,11 +34,10 @@ function formatFileSize(bytes: number): string {
   return (bytes / 1048576).toFixed(1) + " MB";
 }
 
-function getFileIcon(fileType: string): string {
-  if (fileType.startsWith("image/")) return "img";
-  if (fileType === "application/pdf") return "pdf";
-  if (fileType.startsWith("text/")) return "txt";
-  return "file";
+function getFileIcon(fileType: string) {
+  if (fileType.startsWith("image/")) return Image;
+  if (fileType === "application/pdf") return File;
+  return FileText;
 }
 
 export default function EvidencePage() {
@@ -46,19 +47,32 @@ export default function EvidencePage() {
 
   const [search, setSearch] = useState(initialQ);
   const [clientFilter, setClientFilter] = useState<string>("all");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   const [showFilters, setShowFilters] = useState(false);
 
   const queryParams = new URLSearchParams();
   if (search) queryParams.set("q", search);
   if (clientFilter && clientFilter !== "all") queryParams.set("clientId", clientFilter);
+  if (dateFrom) queryParams.set("dateFrom", dateFrom);
+  if (dateTo) queryParams.set("dateTo", dateTo);
   const queryString = queryParams.toString();
 
+  const evidenceUrl = `/api/evidence${queryString ? `?${queryString}` : ""}`;
   const { data: evidence, isLoading } = useQuery<EvidenceWithRelations[]>({
-    queryKey: ["/api/evidence" + (queryString ? `?${queryString}` : "")],
+    queryKey: [evidenceUrl],
   });
 
   const { data: clients } = useQuery<Client[]>({ queryKey: ["/api/clients"] });
   const { data: tags } = useQuery<Tag[]>({ queryKey: ["/api/tags"] });
+
+  const hasActiveFilters = clientFilter !== "all" || dateFrom || dateTo;
+
+  const clearFilters = () => {
+    setClientFilter("all");
+    setDateFrom("");
+    setDateTo("");
+  };
 
   if (isLoading) {
     return (
@@ -82,7 +96,7 @@ export default function EvidencePage() {
             Evidence Locker
           </h1>
           <p className="text-sm text-muted-foreground">
-            All uploaded evidence files and metadata.
+            {evidence?.length || 0} evidence items
           </p>
         </div>
         <Button asChild data-testid="button-upload-evidence-page">
@@ -98,7 +112,7 @@ export default function EvidencePage() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
             type="search"
-            placeholder="Search evidence..."
+            placeholder="Search evidence by title, notes, client, asset..."
             className="pl-9"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -106,19 +120,20 @@ export default function EvidencePage() {
           />
         </div>
         <Button
-          variant="outline"
+          variant={hasActiveFilters ? "default" : "outline"}
           onClick={() => setShowFilters(!showFilters)}
           data-testid="button-toggle-filters"
         >
           <Filter className="w-4 h-4 mr-1" />
           Filters
+          {hasActiveFilters && <Badge variant="secondary" className="ml-1 text-xs">Active</Badge>}
         </Button>
       </div>
 
       {showFilters && (
         <Card>
           <CardContent className="p-4">
-            <div className="flex items-center gap-4 flex-wrap">
+            <div className="flex items-end gap-4 flex-wrap">
               <div className="space-y-1">
                 <p className="text-xs text-muted-foreground font-medium">Client</p>
                 <Select
@@ -138,11 +153,32 @@ export default function EvidencePage() {
                   </SelectContent>
                 </Select>
               </div>
-              {(clientFilter !== "all") && (
+              <div className="space-y-1">
+                <p className="text-xs text-muted-foreground font-medium">From</p>
+                <Input
+                  type="date"
+                  value={dateFrom}
+                  onChange={(e) => setDateFrom(e.target.value)}
+                  className="w-[160px]"
+                  data-testid="input-filter-date-from"
+                />
+              </div>
+              <div className="space-y-1">
+                <p className="text-xs text-muted-foreground font-medium">To</p>
+                <Input
+                  type="date"
+                  value={dateTo}
+                  onChange={(e) => setDateTo(e.target.value)}
+                  className="w-[160px]"
+                  data-testid="input-filter-date-to"
+                />
+              </div>
+              {hasActiveFilters && (
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => setClientFilter("all")}
+                  onClick={clearFilters}
+                  data-testid="button-clear-filters"
                 >
                   <X className="w-3 h-3 mr-1" />
                   Clear
@@ -157,11 +193,11 @@ export default function EvidencePage() {
         <div className="text-center py-16 text-muted-foreground">
           <FileText className="w-10 h-10 mx-auto mb-3 opacity-40" />
           <p className="text-sm font-medium">
-            {search || clientFilter !== "all"
+            {search || hasActiveFilters
               ? "No evidence matches your filters"
               : "No evidence uploaded yet"}
           </p>
-          {!search && clientFilter === "all" && (
+          {!search && !hasActiveFilters && (
             <>
               <p className="text-xs mt-1">Upload your first evidence file to get started.</p>
               <Button asChild variant="outline" size="sm" className="mt-4">
@@ -175,16 +211,15 @@ export default function EvidencePage() {
         </div>
       ) : (
         <div className="grid gap-2">
-          {evidence.map((item) => (
-            <Link key={item.id} href={`/evidence/${item.id}`}>
-              <Card className="hover-elevate cursor-pointer" data-testid={`card-evidence-${item.id}`}>
+          {evidence.map((item) => {
+            const IconComp = getFileIcon(item.fileType);
+            return (
+              <Card key={item.id} className="hover-elevate" data-testid={`card-evidence-${item.id}`}>
                 <CardContent className="p-4">
                   <div className="flex items-center justify-between gap-4">
-                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                    <Link href={`/evidence/${item.id}`} className="flex items-center gap-3 min-w-0 flex-1 cursor-pointer">
                       <div className="w-9 h-9 rounded-md bg-muted flex items-center justify-center flex-shrink-0">
-                        <span className="text-xs font-mono font-bold text-muted-foreground uppercase">
-                          {getFileIcon(item.fileType)}
-                        </span>
+                        <IconComp className="w-4 h-4 text-muted-foreground" />
                       </div>
                       <div className="min-w-0 flex-1">
                         <p className="font-medium text-sm truncate">{item.title}</p>
@@ -203,8 +238,14 @@ export default function EvidencePage() {
                           )}
                         </div>
                       </div>
-                    </div>
+                    </Link>
                     <div className="flex items-center gap-2 flex-shrink-0">
+                      <EvidencePreviewButton
+                        id={item.id}
+                        title={item.title}
+                        fileType={item.fileType}
+                        fileName={item.fileName}
+                      />
                       <div className="flex items-center gap-1 text-xs text-muted-foreground">
                         <Clock className="w-3 h-3" />
                         {item.createdAt
@@ -215,8 +256,8 @@ export default function EvidencePage() {
                   </div>
                 </CardContent>
               </Card>
-            </Link>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

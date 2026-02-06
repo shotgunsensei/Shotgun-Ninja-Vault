@@ -2,7 +2,6 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRoute, useLocation, Link } from "wouter";
 import {
   FileText,
-  ArrowLeft,
   Download,
   Trash2,
   Clock,
@@ -10,6 +9,7 @@ import {
   MapPin,
   Server,
   Tag,
+  Hash,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -29,6 +29,8 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { formatDistanceToNow } from "date-fns";
+import { Breadcrumbs } from "@/components/breadcrumbs";
+import { EvidencePreviewButton } from "@/components/evidence-preview";
 import type { EvidenceWithRelations } from "@/lib/types";
 
 function formatFileSize(bytes: number): string {
@@ -43,7 +45,7 @@ export default function EvidenceDetailPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: item, isLoading } = useQuery<EvidenceWithRelations & { tagNames?: string[] }>({
+  const { data: item, isLoading } = useQuery<EvidenceWithRelations>({
     queryKey: ["/api/evidence", params?.id],
     enabled: !!params?.id,
   });
@@ -53,7 +55,12 @@ export default function EvidenceDetailPage() {
       await apiRequest("DELETE", `/api/evidence/${params?.id}`);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/evidence"] });
+      queryClient.invalidateQueries({
+        predicate: (query) =>
+          Array.isArray(query.queryKey) &&
+          typeof query.queryKey[0] === "string" &&
+          query.queryKey[0].startsWith("/api/evidence"),
+      });
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
       toast({ title: "Evidence deleted" });
       navigate("/evidence");
@@ -81,33 +88,43 @@ export default function EvidenceDetailPage() {
   }
 
   const isImage = item.fileType.startsWith("image/");
+  const isPdf = item.fileType === "application/pdf";
+
+  const breadcrumbs = [
+    { label: "Evidence", href: "/evidence" },
+    ...(item.clientName && item.clientId
+      ? [{ label: item.clientName, href: `/clients/${item.clientId}` }]
+      : []),
+    { label: item.title },
+  ];
 
   return (
     <div className="p-6 max-w-3xl mx-auto space-y-6">
+      <Breadcrumbs items={breadcrumbs} />
+
       <div className="flex items-center justify-between gap-3 flex-wrap">
-        <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon" asChild>
-            <Link href="/evidence">
-              <ArrowLeft className="w-4 h-4" />
-            </Link>
-          </Button>
-          <div>
-            <h1
-              className="text-2xl font-bold tracking-tight"
-              data-testid="text-evidence-detail-title"
-            >
-              {item.title}
-            </h1>
-            <div className="flex items-center gap-1 text-sm text-muted-foreground mt-0.5">
-              <Clock className="w-3 h-3" />
-              {item.createdAt
-                ? formatDistanceToNow(new Date(item.createdAt), { addSuffix: true })
-                : "Just now"}
-              {item.uploadedByName && ` by ${item.uploadedByName}`}
-            </div>
+        <div>
+          <h1
+            className="text-2xl font-bold tracking-tight"
+            data-testid="text-evidence-detail-title"
+          >
+            {item.title}
+          </h1>
+          <div className="flex items-center gap-1 text-sm text-muted-foreground mt-0.5">
+            <Clock className="w-3 h-3" />
+            {item.createdAt
+              ? formatDistanceToNow(new Date(item.createdAt), { addSuffix: true })
+              : "Just now"}
+            {item.uploadedByName && ` by ${item.uploadedByName}`}
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <EvidencePreviewButton
+            id={item.id}
+            title={item.title}
+            fileType={item.fileType}
+            fileName={item.fileName}
+          />
           <Button variant="outline" asChild data-testid="button-download-evidence">
             <a href={`/api/evidence/${item.id}/download`} download>
               <Download className="w-4 h-4 mr-1" />
@@ -157,6 +174,20 @@ export default function EvidenceDetailPage() {
         </Card>
       )}
 
+      {isPdf && (
+        <Card>
+          <CardContent className="p-4">
+            <iframe
+              src={`/api/evidence/${item.id}/download#toolbar=0`}
+              title={item.title}
+              className="w-full rounded-md border-0"
+              style={{ height: "400px" }}
+              data-testid="iframe-evidence-preview"
+            />
+          </CardContent>
+        </Card>
+      )}
+
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-base font-semibold">Details</CardTitle>
@@ -175,6 +206,14 @@ export default function EvidenceDetailPage() {
               <p className="text-xs text-muted-foreground font-medium">File size</p>
               <p className="text-sm mt-0.5">{formatFileSize(item.fileSize)}</p>
             </div>
+            {item.sha256 && (
+              <div>
+                <p className="text-xs text-muted-foreground font-medium">SHA-256</p>
+                <p className="text-sm mt-0.5 font-mono text-muted-foreground truncate" title={item.sha256}>
+                  {item.sha256.substring(0, 16)}...
+                </p>
+              </div>
+            )}
           </div>
 
           {item.notes && (
@@ -190,7 +229,7 @@ export default function EvidenceDetailPage() {
                 <Users className="w-3.5 h-3.5 text-muted-foreground" />
                 <span className="text-muted-foreground">Client:</span>
                 <Link href={`/clients/${item.clientId}`}>
-                  <span className="text-primary font-medium cursor-pointer">{item.clientName}</span>
+                  <span className="font-medium cursor-pointer">{item.clientName}</span>
                 </Link>
               </div>
             )}
@@ -206,7 +245,7 @@ export default function EvidenceDetailPage() {
                 <Server className="w-3.5 h-3.5 text-muted-foreground" />
                 <span className="text-muted-foreground">Asset:</span>
                 <Link href={`/assets/${item.assetId}`}>
-                  <span className="text-primary font-medium cursor-pointer">{item.assetName}</span>
+                  <span className="font-medium cursor-pointer">{item.assetName}</span>
                 </Link>
               </div>
             )}

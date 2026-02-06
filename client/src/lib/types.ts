@@ -33,6 +33,7 @@ export interface EvidenceWithRelations {
   fileType: string;
   fileSize: number;
   filePath: string;
+  sha256: string | null;
   tagIds: string[] | null;
   uploadedById: string | null;
   createdAt: string | null;
@@ -40,6 +41,7 @@ export interface EvidenceWithRelations {
   siteName?: string;
   assetName?: string;
   uploadedByName?: string;
+  tagNames?: string[];
 }
 
 export interface MemberWithUser {

@@ -8,13 +8,13 @@ import {
   Mail,
   Phone,
   Building2,
-  ArrowLeft,
   Clock,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Breadcrumbs } from "@/components/breadcrumbs";
 import { formatDistanceToNow } from "date-fns";
 import type { Client, Site, Asset, EvidenceItem } from "@shared/schema";
 
@@ -52,12 +52,12 @@ export default function ClientDetailPage() {
 
   return (
     <div className="p-6 space-y-6">
+      <Breadcrumbs items={[
+        { label: "Clients", href: "/clients" },
+        { label: client.name },
+      ]} />
+
       <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" asChild>
-          <Link href="/clients">
-            <ArrowLeft className="w-4 h-4" />
-          </Link>
-        </Button>
         <div>
           <h1 className="text-2xl font-bold tracking-tight" data-testid="text-client-name">
             {client.name}
