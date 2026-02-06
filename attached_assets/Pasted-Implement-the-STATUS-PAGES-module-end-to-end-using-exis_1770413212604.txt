@@ -1,0 +1,73 @@
+Implement the STATUS PAGES module end-to-end using existing SNV patterns.
+
+Requirements:
+- Add new server module folder: server/modules/status/
+  - routes.ts: all API routes
+- Add new client module folder: client/src/modules/status/
+  - pages for admin management and public status view
+- Add schema tables in shared/schema.ts:
+  1) statusPages:
+     - id (uuid pk)
+     - tenantId (fk tenants)
+     - publicSlug (unique, indexed)
+     - isPublic (boolean default false)
+     - title (text)
+     - description (text nullable)
+     - createdAt, updatedAt
+  2) statusComponents:
+     - id (uuid pk)
+     - tenantId (fk)
+     - name (text)
+     - description (text nullable)
+     - status (enum text: 'operational'|'degraded'|'partial_outage'|'major_outage'|'maintenance')
+     - displayOrder (int default 0)
+     - createdAt, updatedAt
+  3) statusIncidents:
+     - id (uuid pk)
+     - tenantId (fk)
+     - title (text)
+     - description (text)
+     - severity (enum text: 'info'|'minor'|'major'|'critical')
+     - status (enum text: 'investigating'|'identified'|'monitoring'|'resolved')
+     - startedAt (timestamp)
+     - resolvedAt (timestamp nullable)
+     - createdAt, updatedAt
+
+- Update server/storage.ts with CRUD methods for these tables, consistent with existing style.
+- Add module manifest to shared/modules/index.ts:
+  - id: "status"
+  - nav item visible to OWNER/ADMIN: "Status"
+  - route: /status-admin
+- Add server API routes (authenticated + role-gated):
+  - GET /api/status/page (get tenant’s page)
+  - PUT /api/status/page (upsert settings including publicSlug, isPublic, title, description)
+  - CRUD components: /api/status/components
+  - CRUD incidents: /api/status/incidents
+  - All writes emit events via emitEvent helper:
+    - status.page_updated
+    - status.component_created/updated/deleted
+    - status.incident_created/updated/deleted
+
+- Add PUBLIC routes (no auth):
+  - GET /api/public/status/:slug -> returns {page, components, activeIncidents, recentIncidents}
+  - Client page at /status/:slug that calls the public API and renders a clean status page.
+
+- Register server routes in server/routes.ts:
+  - import registerStatusRoutes and call it
+
+Client UI specifics:
+- Admin page /status-admin:
+  - edit page title/description/publicSlug/isPublic
+  - manage components list with inline status select + reorder (displayOrder)
+  - manage incidents list + create/update/resolve
+- Public page /status/:slug:
+  - show overall banner (if any component not operational, show summary)
+  - show components list
+  - show active incidents and resolved incidents
+
+Acceptance criteria:
+- db:push works with new tables
+- module appears in nav for OWNER/ADMIN
+- public status page works without login
+- all writes create audit entries through existing audit subscriber (because emitEvent is used)
+- List files changed and any manual steps at end.

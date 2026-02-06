@@ -102,7 +102,33 @@ export const webhooksModule: VaultModuleManifest = {
   roles: ["OWNER", "ADMIN"],
 };
 
-const allModules: VaultModuleManifest[] = [coreModule, evidenceModule, licenseModule, webhooksModule];
+export const statusModule: VaultModuleManifest = {
+  id: "status",
+  name: "Status Pages",
+  description: "Public status pages with component monitoring, incident tracking, and real-time status updates for your customers.",
+  enabled: true,
+  category: "feature",
+  version: "1.0.0",
+  requiredPlan: "free",
+  server: {
+    mountPath: "/api/status",
+    routesFile: "server/modules/status/routes.ts",
+    emits: [
+      "status.page_updated",
+      "status.component_created", "status.component_updated", "status.component_deleted",
+      "status.incident_created", "status.incident_updated", "status.incident_deleted",
+    ],
+  },
+  client: {
+    navItems: [],
+    adminNavItems: [
+      { title: "Status", url: "/status-admin", icon: "Activity", roles: ["OWNER", "ADMIN"] },
+    ],
+  },
+  roles: ["OWNER", "ADMIN"],
+};
+
+const allModules: VaultModuleManifest[] = [coreModule, evidenceModule, licenseModule, webhooksModule, statusModule];
 
 export const moduleRegistry: ModuleRegistry = {
   modules: allModules,

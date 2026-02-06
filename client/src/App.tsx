@@ -36,6 +36,7 @@ import {
 } from "@/modules/license";
 
 import { WebhooksPage } from "@/modules/webhooks";
+import { StatusAdminPage, PublicStatusPage } from "@/modules/status";
 
 import NotFound from "@/pages/not-found";
 
@@ -102,6 +103,7 @@ function AuthenticatedApp() {
               {isAdminOrOwner && <Route path="/licenses" component={LicensesPage} />}
               {isAdminOrOwner && <Route path="/licenses/developer" component={DeveloperPage} />}
               {isAdminOrOwner && <Route path="/webhooks" component={WebhooksPage} />}
+              {isAdminOrOwner && <Route path="/status-admin" component={StatusAdminPage} />}
               {!isClient && <Route path="/settings" component={SettingsPage} />}
               <Route component={NotFound} />
             </Switch>
@@ -115,23 +117,32 @@ function AuthenticatedApp() {
 function AppRouter() {
   const { user, isLoading } = useAuth();
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="space-y-3 w-64">
-          <Skeleton className="h-4 w-full" />
-          <Skeleton className="h-4 w-3/4" />
-          <Skeleton className="h-4 w-1/2" />
-        </div>
-      </div>
-    );
-  }
+  return (
+    <Switch>
+      <Route path="/status/:slug" component={PublicStatusPage} />
+      <Route>
+        {() => {
+          if (isLoading) {
+            return (
+              <div className="flex items-center justify-center min-h-screen">
+                <div className="space-y-3 w-64">
+                  <Skeleton className="h-4 w-full" />
+                  <Skeleton className="h-4 w-3/4" />
+                  <Skeleton className="h-4 w-1/2" />
+                </div>
+              </div>
+            );
+          }
 
-  if (!user) {
-    return <LandingPage />;
-  }
+          if (!user) {
+            return <LandingPage />;
+          }
 
-  return <AuthenticatedApp />;
+          return <AuthenticatedApp />;
+        }}
+      </Route>
+    </Switch>
+  );
 }
 
 function App() {

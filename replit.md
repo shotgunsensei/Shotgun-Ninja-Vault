@@ -32,6 +32,7 @@ server/
     core/routes.ts      - Core API routes (tenants, clients, sites, assets, members, audit, client-access, dashboard, modules)
     evidence/routes.ts  - Evidence API routes (CRUD, upload, download, delete, tags)
     license/routes.ts   - License Server API routes (products, keys, validate, activations)
+    status/routes.ts    - Status Pages API routes (page settings, components, incidents, public endpoint)
 
 client/src/
   App.tsx               - Root app with routing, imports from module barrels
@@ -50,11 +51,14 @@ client/src/
     license/
       index.ts          - Barrel exports for license pages
       pages/            - licenses (products + keys management), developer (API docs)
+    status/
+      index.ts          - Barrel exports for status pages
+      pages/            - status-admin (admin management), public-status (public view)
 ```
 
 ## Module System
 - **Registry**: `shared/modules/index.ts` defines all modules with metadata (id, name, description, version, category, enabled, requiredPlan, navItems)
-- **Three modules**: `core` (always enabled, category: core), `evidence` (Evidence Locker, category: feature), `license` (License Server, category: feature)
+- **Five modules**: `core` (always enabled, category: core), `evidence` (Evidence Locker), `license` (License Server), `webhooks` (Webhooks), `status` (Status Pages)
 - **API**: `GET /api/modules` returns the module list to the frontend
 - **Settings page**: Shows enabled modules with status badges, versions, and plan requirements
 - **Server routes**: Each module registers its own Express routes via a `register*Routes(app)` function
@@ -138,6 +142,17 @@ client/src/
 - **Worker**: `server/modules/webhooks/worker.ts` - polls pending deliveries every 5s, HMAC-SHA256 signed (X-SNV-Event, X-SNV-Timestamp, X-SNV-Signature), exponential backoff (5 retries)
 - **UI**: `client/src/modules/webhooks/pages/webhooks.tsx` - manage webhook endpoints
 
+## Status Pages Module
+- **Data Model**: statusPages (tenant-scoped, publicSlug unique, isPublic toggle), statusComponents (name, status enum, displayOrder), statusIncidents (title, description, severity enum, status enum, startedAt, resolvedAt)
+- **Component Statuses**: operational, degraded, partial_outage, major_outage, maintenance
+- **Incident Severities**: info, minor, major, critical
+- **Incident Statuses**: investigating, identified, monitoring, resolved
+- **Admin Routes** (OWNER/ADMIN only): GET/PUT /api/status/page, CRUD /api/status/components, CRUD /api/status/incidents
+- **Public Route** (no auth): GET /api/public/status/:slug - returns page, components, activeIncidents, recentIncidents (only if isPublic=true)
+- **Admin UI**: /status-admin page with page settings form, component list with inline status selects, incident management with create dialog
+- **Public UI**: /status/:slug page with overall status banner, component list, active/resolved incidents (accessible without login)
+- **Events**: status.page_updated, status.component_created/updated/deleted, status.incident_created/updated/deleted
+
 ## Evidence Packet Export
 - **Endpoint**: `POST /api/evidence/export-packet` - generates ZIP with manifest.json, sha256sums.txt, evidence files, and audit/events.json
 - **UI**: Evidence Locker page has Export button with multi-select mode (checkboxes + select all/deselect all)
@@ -149,6 +164,10 @@ client/src/
 - **UI**: Audit page has collapsible filter panel with action type, entity type, date range filters
 
 ## Recent Changes
+- Added Status Pages module: schema (statusPages, statusComponents, statusIncidents with enums), storage CRUD, authenticated admin routes + public status endpoint, admin UI (/status-admin) and public page (/status/:slug), event emission for all writes
+- Added emitEvent helper (server/core/events/helpers.ts), refactored all modules to use it
+- Added MODULE_BLUEPRINT.md developer guide for adding new modules
+- Added hero background image and SNV logo to landing page and sidebar
 - Added event-driven architecture with EventBus, typed domain events, and audit subscriber
 - Added Webhooks module with HMAC-signed delivery, exponential backoff retries, admin UI
 - Added audit log filters (action type, entity type, date range) with UI filter panel

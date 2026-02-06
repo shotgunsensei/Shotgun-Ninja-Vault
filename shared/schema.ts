@@ -497,6 +497,111 @@ export const webhookDeliveriesRelations = relations(webhookDeliveries, ({ one })
   }),
 }));
 
+export const componentStatusEnum = pgEnum("component_status", [
+  "operational",
+  "degraded",
+  "partial_outage",
+  "major_outage",
+  "maintenance",
+]);
+
+export const incidentSeverityEnum = pgEnum("incident_severity", [
+  "info",
+  "minor",
+  "major",
+  "critical",
+]);
+
+export const incidentStatusEnum = pgEnum("incident_status", [
+  "investigating",
+  "identified",
+  "monitoring",
+  "resolved",
+]);
+
+export const statusPages = pgTable(
+  "status_pages",
+  {
+    id: varchar("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    tenantId: varchar("tenant_id")
+      .notNull()
+      .references(() => tenants.id, { onDelete: "cascade" }),
+    publicSlug: text("public_slug").notNull().unique(),
+    isPublic: boolean("is_public").notNull().default(false),
+    title: text("title").notNull(),
+    description: text("description"),
+    createdAt: timestamp("created_at").defaultNow(),
+    updatedAt: timestamp("updated_at").defaultNow(),
+  },
+  (table) => [
+    index("idx_status_page_tenant").on(table.tenantId),
+    index("idx_status_page_slug").on(table.publicSlug),
+  ]
+);
+
+export const statusPagesRelations = relations(statusPages, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [statusPages.tenantId],
+    references: [tenants.id],
+  }),
+}));
+
+export const statusComponents = pgTable(
+  "status_components",
+  {
+    id: varchar("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    tenantId: varchar("tenant_id")
+      .notNull()
+      .references(() => tenants.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    description: text("description"),
+    status: componentStatusEnum("status").notNull().default("operational"),
+    displayOrder: integer("display_order").notNull().default(0),
+    createdAt: timestamp("created_at").defaultNow(),
+    updatedAt: timestamp("updated_at").defaultNow(),
+  },
+  (table) => [index("idx_status_component_tenant").on(table.tenantId)]
+);
+
+export const statusComponentsRelations = relations(statusComponents, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [statusComponents.tenantId],
+    references: [tenants.id],
+  }),
+}));
+
+export const statusIncidents = pgTable(
+  "status_incidents",
+  {
+    id: varchar("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    tenantId: varchar("tenant_id")
+      .notNull()
+      .references(() => tenants.id, { onDelete: "cascade" }),
+    title: text("title").notNull(),
+    description: text("description").notNull(),
+    severity: incidentSeverityEnum("severity").notNull().default("info"),
+    status: incidentStatusEnum("status").notNull().default("investigating"),
+    startedAt: timestamp("started_at").defaultNow(),
+    resolvedAt: timestamp("resolved_at"),
+    createdAt: timestamp("created_at").defaultNow(),
+    updatedAt: timestamp("updated_at").defaultNow(),
+  },
+  (table) => [index("idx_status_incident_tenant").on(table.tenantId)]
+);
+
+export const statusIncidentsRelations = relations(statusIncidents, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [statusIncidents.tenantId],
+    references: [tenants.id],
+  }),
+}));
+
 export const insertTenantSchema = createInsertSchema(tenants).omit({
   id: true,
   createdAt: true,
@@ -546,6 +651,21 @@ export const insertWebhookDeliverySchema = createInsertSchema(webhookDeliveries)
   id: true,
   createdAt: true,
 });
+export const insertStatusPageSchema = createInsertSchema(statusPages).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export const insertStatusComponentSchema = createInsertSchema(statusComponents).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export const insertStatusIncidentSchema = createInsertSchema(statusIncidents).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
 
 export type Tenant = typeof tenants.$inferSelect;
 export type InsertTenant = z.infer<typeof insertTenantSchema>;
@@ -575,3 +695,9 @@ export type WebhookEndpoint = typeof webhookEndpoints.$inferSelect;
 export type InsertWebhookEndpoint = z.infer<typeof insertWebhookEndpointSchema>;
 export type WebhookDelivery = typeof webhookDeliveries.$inferSelect;
 export type InsertWebhookDelivery = z.infer<typeof insertWebhookDeliverySchema>;
+export type StatusPage = typeof statusPages.$inferSelect;
+export type InsertStatusPage = z.infer<typeof insertStatusPageSchema>;
+export type StatusComponent = typeof statusComponents.$inferSelect;
+export type InsertStatusComponent = z.infer<typeof insertStatusComponentSchema>;
+export type StatusIncident = typeof statusIncidents.$inferSelect;
+export type InsertStatusIncident = z.infer<typeof insertStatusIncidentSchema>;

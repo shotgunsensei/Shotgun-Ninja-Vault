@@ -11,6 +11,7 @@ import {
   Code,
   Webhook,
   Shield,
+  Activity,
 } from "lucide-react";
 import logoImage from "@assets/ShotgunNinjaVaulticon_1770412982737.png";
 import { useLocation, Link } from "wouter";
@@ -63,6 +64,7 @@ export function AppSidebar({ role }: AppSidebarProps) {
   ].filter((item) => item.show);
 
   const adminNavItems = [
+    { title: "Status", url: "/status-admin", icon: Activity, show: isAdminOrOwner },
     { title: "Webhooks", url: "/webhooks", icon: Webhook, show: isAdminOrOwner },
     { title: "Team", url: "/team", icon: Building2, show: isAdminOrOwner },
     { title: "Client Access", url: "/client-access", icon: KeyRound, show: isAdminOrOwner },

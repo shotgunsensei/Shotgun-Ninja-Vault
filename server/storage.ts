@@ -12,6 +12,9 @@ import {
   licenseKeys,
   licenseActivations,
   webhookEndpoints,
+  statusPages,
+  statusComponents,
+  statusIncidents,
   type Tenant,
   type InsertTenant,
   type TenantMember,
@@ -38,6 +41,12 @@ import {
   webhookDeliveries,
   type WebhookDelivery,
   type InsertWebhookDelivery,
+  type StatusPage,
+  type InsertStatusPage,
+  type StatusComponent,
+  type InsertStatusComponent,
+  type StatusIncident,
+  type InsertStatusIncident,
 } from "@shared/schema";
 import { users } from "@shared/models/auth";
 import { db } from "./db";
@@ -154,6 +163,24 @@ export interface IStorage {
   getWebhookDeliveriesByEndpoint(tenantId: string, endpointId: string, limit?: number): Promise<WebhookDelivery[]>;
   getPendingWebhookDeliveries(limit?: number): Promise<WebhookDelivery[]>;
   updateWebhookDelivery(id: string, data: Partial<Pick<WebhookDelivery, "status" | "responseCode" | "responseBody" | "durationMs" | "attempts" | "nextRetryAt" | "completedAt">>): Promise<void>;
+
+  getStatusPageByTenant(tenantId: string): Promise<StatusPage | undefined>;
+  getStatusPageBySlug(slug: string): Promise<StatusPage | undefined>;
+  upsertStatusPage(tenantId: string, data: Partial<Pick<StatusPage, "publicSlug" | "isPublic" | "title" | "description">>): Promise<StatusPage>;
+
+  createStatusComponent(data: InsertStatusComponent): Promise<StatusComponent>;
+  getStatusComponentsByTenant(tenantId: string): Promise<StatusComponent[]>;
+  getStatusComponentById(tenantId: string, id: string): Promise<StatusComponent | undefined>;
+  updateStatusComponent(tenantId: string, id: string, data: Partial<Pick<StatusComponent, "name" | "description" | "status" | "displayOrder">>): Promise<StatusComponent | undefined>;
+  deleteStatusComponent(tenantId: string, id: string): Promise<void>;
+
+  createStatusIncident(data: InsertStatusIncident): Promise<StatusIncident>;
+  getStatusIncidentsByTenant(tenantId: string): Promise<StatusIncident[]>;
+  getStatusIncidentById(tenantId: string, id: string): Promise<StatusIncident | undefined>;
+  updateStatusIncident(tenantId: string, id: string, data: Partial<Pick<StatusIncident, "title" | "description" | "severity" | "status" | "resolvedAt">>): Promise<StatusIncident | undefined>;
+  deleteStatusIncident(tenantId: string, id: string): Promise<void>;
+  getActiveIncidentsByTenant(tenantId: string): Promise<StatusIncident[]>;
+  getRecentResolvedIncidents(tenantId: string, limit?: number): Promise<StatusIncident[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -886,6 +913,96 @@ export class DatabaseStorage implements IStorage {
 
   async updateWebhookDelivery(id: string, data: Partial<Pick<WebhookDelivery, "status" | "responseCode" | "responseBody" | "durationMs" | "attempts" | "nextRetryAt" | "completedAt">>): Promise<void> {
     await db.update(webhookDeliveries).set(data).where(eq(webhookDeliveries.id, id));
+  }
+
+  async getStatusPageByTenant(tenantId: string): Promise<StatusPage | undefined> {
+    const [page] = await db.select().from(statusPages).where(eq(statusPages.tenantId, tenantId));
+    return page;
+  }
+
+  async getStatusPageBySlug(slug: string): Promise<StatusPage | undefined> {
+    const [page] = await db.select().from(statusPages).where(eq(statusPages.publicSlug, slug));
+    return page;
+  }
+
+  async upsertStatusPage(tenantId: string, data: Partial<Pick<StatusPage, "publicSlug" | "isPublic" | "title" | "description">>): Promise<StatusPage> {
+    const existing = await this.getStatusPageByTenant(tenantId);
+    if (existing) {
+      const [updated] = await db.update(statusPages).set({ ...data, updatedAt: new Date() }).where(eq(statusPages.id, existing.id)).returning();
+      return updated;
+    }
+    const [created] = await db.insert(statusPages).values({
+      tenantId,
+      publicSlug: data.publicSlug || tenantId.slice(0, 8),
+      isPublic: data.isPublic ?? false,
+      title: data.title || "Status Page",
+      description: data.description,
+    }).returning();
+    return created;
+  }
+
+  async createStatusComponent(data: InsertStatusComponent): Promise<StatusComponent> {
+    const [component] = await db.insert(statusComponents).values(data).returning();
+    return component;
+  }
+
+  async getStatusComponentsByTenant(tenantId: string): Promise<StatusComponent[]> {
+    return db.select().from(statusComponents).where(eq(statusComponents.tenantId, tenantId)).orderBy(statusComponents.displayOrder);
+  }
+
+  async getStatusComponentById(tenantId: string, id: string): Promise<StatusComponent | undefined> {
+    const [component] = await db.select().from(statusComponents).where(and(eq(statusComponents.tenantId, tenantId), eq(statusComponents.id, id)));
+    return component;
+  }
+
+  async updateStatusComponent(tenantId: string, id: string, data: Partial<Pick<StatusComponent, "name" | "description" | "status" | "displayOrder">>): Promise<StatusComponent | undefined> {
+    const [updated] = await db.update(statusComponents).set({ ...data, updatedAt: new Date() }).where(and(eq(statusComponents.tenantId, tenantId), eq(statusComponents.id, id))).returning();
+    return updated;
+  }
+
+  async deleteStatusComponent(tenantId: string, id: string): Promise<void> {
+    await db.delete(statusComponents).where(and(eq(statusComponents.tenantId, tenantId), eq(statusComponents.id, id)));
+  }
+
+  async createStatusIncident(data: InsertStatusIncident): Promise<StatusIncident> {
+    const [incident] = await db.insert(statusIncidents).values(data).returning();
+    return incident;
+  }
+
+  async getStatusIncidentsByTenant(tenantId: string): Promise<StatusIncident[]> {
+    return db.select().from(statusIncidents).where(eq(statusIncidents.tenantId, tenantId)).orderBy(desc(statusIncidents.createdAt));
+  }
+
+  async getStatusIncidentById(tenantId: string, id: string): Promise<StatusIncident | undefined> {
+    const [incident] = await db.select().from(statusIncidents).where(and(eq(statusIncidents.tenantId, tenantId), eq(statusIncidents.id, id)));
+    return incident;
+  }
+
+  async updateStatusIncident(tenantId: string, id: string, data: Partial<Pick<StatusIncident, "title" | "description" | "severity" | "status" | "resolvedAt">>): Promise<StatusIncident | undefined> {
+    const [updated] = await db.update(statusIncidents).set({ ...data, updatedAt: new Date() }).where(and(eq(statusIncidents.tenantId, tenantId), eq(statusIncidents.id, id))).returning();
+    return updated;
+  }
+
+  async deleteStatusIncident(tenantId: string, id: string): Promise<void> {
+    await db.delete(statusIncidents).where(and(eq(statusIncidents.tenantId, tenantId), eq(statusIncidents.id, id)));
+  }
+
+  async getActiveIncidentsByTenant(tenantId: string): Promise<StatusIncident[]> {
+    return db.select().from(statusIncidents).where(
+      and(
+        eq(statusIncidents.tenantId, tenantId),
+        sql`${statusIncidents.status} != 'resolved'`
+      )
+    ).orderBy(desc(statusIncidents.createdAt));
+  }
+
+  async getRecentResolvedIncidents(tenantId: string, limit = 10): Promise<StatusIncident[]> {
+    return db.select().from(statusIncidents).where(
+      and(
+        eq(statusIncidents.tenantId, tenantId),
+        sql`${statusIncidents.status} = 'resolved'`
+      )
+    ).orderBy(desc(statusIncidents.resolvedAt)).limit(limit);
   }
 }
 
