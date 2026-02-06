@@ -1,0 +1,69 @@
+Implement the COMPLIANCE REPORTS module focused on Evidence Packet ZIP exports.
+
+Requirements:
+- Add server module folder: server/modules/reports/
+  - routes.ts
+  - generator.ts (zip builder)
+- Add client module folder: client/src/modules/reports/
+  - page /reports with a wizard-style UI to generate an Evidence Packet
+- Add schema in shared/schema.ts:
+  1) reportJobs:
+     - id (uuid pk)
+     - tenantId (fk)
+     - createdByUserId (text)
+     - type (text) // 'evidence_packet'
+     - status (text enum: 'queued'|'running'|'complete'|'failed')
+     - params (jsonb)
+     - outputPath (text nullable) // stored file path under uploads/reports/...
+     - errorMessage (text nullable)
+     - createdAt, updatedAt
+- Update server/storage.ts with CRUD methods:
+  - createReportJob(params)
+  - updateReportJobStatus(...)
+  - getReportJob(id)
+  - listReportJobs(tenantId)
+
+Evidence Packet output format (ZIP):
+- manifest.json containing:
+  - generatedAt, tenantId, generatedByUserId
+  - filters used
+  - list of evidence items included: {id, filename, sha256, tags, createdAt}
+  - sha256 sums of each file
+- sha256sums.txt containing file hashes
+- evidence/<original filenames> (dedup-safe naming if collisions)
+- audit/audit.jsonl (newline-delimited audit entries relevant to date range)
+
+Filtering:
+- date range (createdAt)
+- optional tags include/exclude
+- optional clientId/siteId/assetId
+- includeAudit boolean
+- includeEvidenceFiles boolean
+
+Server routes:
+- POST /api/reports/evidence-packet  (authenticated OWNER/ADMIN/TECH)
+  - creates a reportJob in queued
+  - runs generation immediately in-process (no external queue) but updates status running/complete/failed
+  - emits events: report.job_created, report.job_completed, report.job_failed
+- GET /api/reports/jobs (list)
+- GET /api/reports/jobs/:id (detail)
+- GET /api/reports/jobs/:id/download (stream zip) only if complete and tenant matches
+
+Client UI:
+- /reports page:
+  - form inputs for filters
+  - “Generate Packet” button
+  - shows job progress (polling)
+  - list of recent jobs with Download button
+
+Implementation constraints:
+- Use existing local storage approach (uploads folder) and do not introduce S3 yet.
+- Use a well-known Node zip library (archiver is fine) but keep it minimal.
+- Ensure path traversal is impossible (sanitize filenames).
+- Ensure tenant isolation enforced on all job routes.
+
+Acceptance criteria:
+- Generating a packet produces a downloadable ZIP
+- Job records persist and list properly
+- Download requires auth and tenant match
+- List all changed files and any manual steps at end.

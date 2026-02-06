@@ -47,6 +47,9 @@ import {
   type InsertStatusComponent,
   type StatusIncident,
   type InsertStatusIncident,
+  reportJobs,
+  type ReportJob,
+  type InsertReportJob,
 } from "@shared/schema";
 import { users } from "@shared/models/auth";
 import { db } from "./db";
@@ -181,6 +184,11 @@ export interface IStorage {
   deleteStatusIncident(tenantId: string, id: string): Promise<void>;
   getActiveIncidentsByTenant(tenantId: string): Promise<StatusIncident[]>;
   getRecentResolvedIncidents(tenantId: string, limit?: number): Promise<StatusIncident[]>;
+
+  createReportJob(data: InsertReportJob): Promise<ReportJob>;
+  updateReportJobStatus(id: string, tenantId: string, status: string, updates?: { outputPath?: string; errorMessage?: string }): Promise<ReportJob | undefined>;
+  getReportJob(tenantId: string, id: string): Promise<ReportJob | undefined>;
+  listReportJobs(tenantId: string): Promise<ReportJob[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1003,6 +1011,29 @@ export class DatabaseStorage implements IStorage {
         sql`${statusIncidents.status} = 'resolved'`
       )
     ).orderBy(desc(statusIncidents.resolvedAt)).limit(limit);
+  }
+  async createReportJob(data: InsertReportJob): Promise<ReportJob> {
+    const [job] = await db.insert(reportJobs).values(data).returning();
+    return job;
+  }
+
+  async updateReportJobStatus(id: string, tenantId: string, status: string, updates?: { outputPath?: string; errorMessage?: string }): Promise<ReportJob | undefined> {
+    const [updated] = await db.update(reportJobs).set({
+      status: status as any,
+      updatedAt: new Date(),
+      ...(updates?.outputPath !== undefined ? { outputPath: updates.outputPath } : {}),
+      ...(updates?.errorMessage !== undefined ? { errorMessage: updates.errorMessage } : {}),
+    }).where(and(eq(reportJobs.id, id), eq(reportJobs.tenantId, tenantId))).returning();
+    return updated;
+  }
+
+  async getReportJob(tenantId: string, id: string): Promise<ReportJob | undefined> {
+    const [job] = await db.select().from(reportJobs).where(and(eq(reportJobs.tenantId, tenantId), eq(reportJobs.id, id)));
+    return job;
+  }
+
+  async listReportJobs(tenantId: string): Promise<ReportJob[]> {
+    return db.select().from(reportJobs).where(eq(reportJobs.tenantId, tenantId)).orderBy(desc(reportJobs.createdAt));
   }
 }
 

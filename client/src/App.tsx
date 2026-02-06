@@ -37,6 +37,7 @@ import {
 
 import { WebhooksPage } from "@/modules/webhooks";
 import { StatusAdminPage, PublicStatusPage } from "@/modules/status";
+import { ReportsPage } from "@/modules/reports";
 
 import NotFound from "@/pages/not-found";
 
@@ -104,6 +105,7 @@ function AuthenticatedApp() {
               {isAdminOrOwner && <Route path="/licenses/developer" component={DeveloperPage} />}
               {isAdminOrOwner && <Route path="/webhooks" component={WebhooksPage} />}
               {isAdminOrOwner && <Route path="/status-admin" component={StatusAdminPage} />}
+              {!isClient && <Route path="/reports" component={ReportsPage} />}
               {!isClient && <Route path="/settings" component={SettingsPage} />}
               <Route component={NotFound} />
             </Switch>

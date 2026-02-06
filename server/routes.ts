@@ -6,6 +6,7 @@ import { registerEvidenceRoutes } from "./modules/evidence/routes";
 import { registerLicenseRoutes } from "./modules/license/routes";
 import { registerWebhookRoutes } from "./modules/webhooks/routes";
 import { registerStatusRoutes } from "./modules/status/routes";
+import { registerReportRoutes } from "./modules/reports/routes";
 import { registerAuditSubscriber } from "./core/events/subscribers";
 import { startWebhookWorker } from "./modules/webhooks/worker";
 import { storage } from "./storage";
@@ -25,6 +26,7 @@ export async function registerRoutes(
   registerLicenseRoutes(app);
   registerWebhookRoutes(app);
   registerStatusRoutes(app);
+  registerReportRoutes(app);
 
   return httpServer;
 }

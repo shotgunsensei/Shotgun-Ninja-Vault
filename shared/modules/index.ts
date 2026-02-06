@@ -128,7 +128,30 @@ export const statusModule: VaultModuleManifest = {
   roles: ["OWNER", "ADMIN"],
 };
 
-const allModules: VaultModuleManifest[] = [coreModule, evidenceModule, licenseModule, webhooksModule, statusModule];
+export const reportsModule: VaultModuleManifest = {
+  id: "reports",
+  name: "Compliance Reports",
+  description: "Generate downloadable Evidence Packet ZIP exports with manifests, SHA-256 checksums, audit trails, and filtered evidence files.",
+  enabled: true,
+  category: "feature",
+  version: "1.0.0",
+  requiredPlan: "free",
+  server: {
+    mountPath: "/api/reports",
+    routesFile: "server/modules/reports/routes.ts",
+    emits: [
+      "report.job_created", "report.job_completed", "report.job_failed",
+    ],
+  },
+  client: {
+    navItems: [
+      { title: "Reports", url: "/reports", icon: "ClipboardList", roles: ["OWNER", "ADMIN", "TECH"] },
+    ],
+  },
+  roles: ["OWNER", "ADMIN", "TECH"],
+};
+
+const allModules: VaultModuleManifest[] = [coreModule, evidenceModule, licenseModule, webhooksModule, statusModule, reportsModule];
 
 export const moduleRegistry: ModuleRegistry = {
   modules: allModules,

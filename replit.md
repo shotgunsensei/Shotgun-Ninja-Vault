@@ -33,6 +33,9 @@ server/
     evidence/routes.ts  - Evidence API routes (CRUD, upload, download, delete, tags)
     license/routes.ts   - License Server API routes (products, keys, validate, activations)
     status/routes.ts    - Status Pages API routes (page settings, components, incidents, public endpoint)
+    reports/
+      routes.ts         - Compliance Reports API routes (create job, list, detail, download)
+      generator.ts      - Evidence Packet ZIP builder
 
 client/src/
   App.tsx               - Root app with routing, imports from module barrels
@@ -54,11 +57,14 @@ client/src/
     status/
       index.ts          - Barrel exports for status pages
       pages/            - status-admin (admin management), public-status (public view)
+    reports/
+      index.ts          - Barrel exports for reports pages
+      pages/            - reports (wizard-style generation + job list)
 ```
 
 ## Module System
 - **Registry**: `shared/modules/index.ts` defines all modules with metadata (id, name, description, version, category, enabled, requiredPlan, navItems)
-- **Five modules**: `core` (always enabled, category: core), `evidence` (Evidence Locker), `license` (License Server), `webhooks` (Webhooks), `status` (Status Pages)
+- **Six modules**: `core` (always enabled, category: core), `evidence` (Evidence Locker), `license` (License Server), `webhooks` (Webhooks), `status` (Status Pages), `reports` (Compliance Reports)
 - **API**: `GET /api/modules` returns the module list to the frontend
 - **Settings page**: Shows enabled modules with status badges, versions, and plan requirements
 - **Server routes**: Each module registers its own Express routes via a `register*Routes(app)` function
@@ -153,6 +159,16 @@ client/src/
 - **Public UI**: /status/:slug page with overall status banner, component list, active/resolved incidents (accessible without login)
 - **Events**: status.page_updated, status.component_created/updated/deleted, status.incident_created/updated/deleted
 
+## Compliance Reports Module
+- **Data Model**: reportJobs (tenantId, createdByUserId, type, status enum queued/running/complete/failed, params jsonb, outputPath, errorMessage, timestamps)
+- **Generator**: `server/modules/reports/generator.ts` - builds ZIP with manifest.json, sha256sums.txt, evidence files (dedup-safe naming), audit/audit.jsonl
+- **Filtering**: date range, clientId, assetId, tags include/exclude, includeAudit, includeEvidenceFiles toggles
+- **Routes** (OWNER/ADMIN/TECH): POST /api/reports/evidence-packet (create job), GET /api/reports/jobs (list), GET /api/reports/jobs/:id (detail), GET /api/reports/jobs/:id/download (stream ZIP)
+- **Job Lifecycle**: queued -> running -> complete/failed, output stored at data/uploads/reports/{tenantId}/
+- **UI**: /reports page with filter form, generate button, polling job list with download buttons
+- **Events**: report.job_created, report.job_completed, report.job_failed
+- **Security**: path traversal prevention, tenant isolation on all routes, sanitized filenames
+
 ## Evidence Packet Export
 - **Endpoint**: `POST /api/evidence/export-packet` - generates ZIP with manifest.json, sha256sums.txt, evidence files, and audit/events.json
 - **UI**: Evidence Locker page has Export button with multi-select mode (checkboxes + select all/deselect all)
@@ -164,6 +180,7 @@ client/src/
 - **UI**: Audit page has collapsible filter panel with action type, entity type, date range filters
 
 ## Recent Changes
+- Added Compliance Reports module: reportJobs schema, storage CRUD, generator.ts ZIP builder, routes with download endpoint, wizard-style /reports page with filtering, polling job list, and download buttons
 - Added Status Pages module: schema (statusPages, statusComponents, statusIncidents with enums), storage CRUD, authenticated admin routes + public status endpoint, admin UI (/status-admin) and public page (/status/:slug), event emission for all writes
 - Added emitEvent helper (server/core/events/helpers.ts), refactored all modules to use it
 - Added MODULE_BLUEPRINT.md developer guide for adding new modules

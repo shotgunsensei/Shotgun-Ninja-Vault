@@ -12,6 +12,7 @@ import {
   Webhook,
   Shield,
   Activity,
+  ClipboardList,
 } from "lucide-react";
 import logoImage from "@assets/ShotgunNinjaVaulticon_1770412982737.png";
 import { useLocation, Link } from "wouter";
@@ -56,6 +57,7 @@ export function AppSidebar({ role }: AppSidebarProps) {
     { title: "Sites", url: "/sites", icon: MapPin, show: !isClient },
     { title: "Assets", url: "/assets", icon: Server, show: !isClient },
     { title: "Evidence", url: "/evidence", icon: FileText, show: true },
+    { title: "Reports", url: "/reports", icon: ClipboardList, show: !isClient },
   ].filter((item) => item.show);
 
   const licenseNavItems = [

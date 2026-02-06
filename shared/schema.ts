@@ -667,6 +667,36 @@ export const insertStatusIncidentSchema = createInsertSchema(statusIncidents).om
   updatedAt: true,
 });
 
+export const reportJobStatusEnum = pgEnum("report_job_status", [
+  "queued",
+  "running",
+  "complete",
+  "failed",
+]);
+
+export const reportJobs = pgTable("report_jobs", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id")
+    .notNull()
+    .references(() => tenants.id, { onDelete: "cascade" }),
+  createdByUserId: text("created_by_user_id").notNull(),
+  type: text("type").notNull().default("evidence_packet"),
+  status: reportJobStatusEnum("status").notNull().default("queued"),
+  params: jsonb("params"),
+  outputPath: text("output_path"),
+  errorMessage: text("error_message"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertReportJobSchema = createInsertSchema(reportJobs).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 export type Tenant = typeof tenants.$inferSelect;
 export type InsertTenant = z.infer<typeof insertTenantSchema>;
 export type TenantMember = typeof tenantMembers.$inferSelect;
@@ -701,3 +731,5 @@ export type StatusComponent = typeof statusComponents.$inferSelect;
 export type InsertStatusComponent = z.infer<typeof insertStatusComponentSchema>;
 export type StatusIncident = typeof statusIncidents.$inferSelect;
 export type InsertStatusIncident = z.infer<typeof insertStatusIncidentSchema>;
+export type ReportJob = typeof reportJobs.$inferSelect;
+export type InsertReportJob = z.infer<typeof insertReportJobSchema>;
