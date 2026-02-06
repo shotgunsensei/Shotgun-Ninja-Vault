@@ -1,7 +1,7 @@
 # Shotgun Ninja Vault (SNV)
 
 ## Overview
-A multi-tenant SaaS web application for IT professionals and MSPs to securely manage digital evidence. Features role-based access control, evidence file management, client/asset tracking, and audit logging. Built with a modular architecture.
+A multi-tenant SaaS web application for IT professionals and MSPs to securely manage digital evidence. Features role-based access control, evidence file management, client/asset tracking, audit logging, and a license server module. Built with a modular architecture.
 
 ## Architecture
 - **Frontend**: React + Vite + wouter + TanStack Query + shadcn/ui + Tailwind
@@ -31,6 +31,7 @@ server/
   modules/
     core/routes.ts      - Core API routes (tenants, clients, sites, assets, members, audit, client-access, dashboard, modules)
     evidence/routes.ts  - Evidence API routes (CRUD, upload, download, delete, tags)
+    license/routes.ts   - License Server API routes (products, keys, validate, activations)
 
 client/src/
   App.tsx               - Root app with routing, imports from module barrels
@@ -46,11 +47,14 @@ client/src/
       index.ts          - Barrel exports for all evidence pages + components
       pages/            - evidence, evidence-detail, evidence-upload
       components/       - evidence-preview
+    license/
+      index.ts          - Barrel exports for license pages
+      pages/            - licenses (products + keys management), developer (API docs)
 ```
 
 ## Module System
 - **Registry**: `shared/modules/index.ts` defines all modules with metadata (id, name, description, version, category, enabled, requiredPlan, navItems)
-- **Two modules**: `core` (always enabled, category: core) and `evidence` (Evidence Locker, category: feature)
+- **Three modules**: `core` (always enabled, category: core), `evidence` (Evidence Locker, category: feature), `license` (License Server, category: feature)
 - **API**: `GET /api/modules` returns the module list to the frontend
 - **Settings page**: Shows enabled modules with status badges, versions, and plan requirements
 - **Server routes**: Each module registers its own Express routes via a `register*Routes(app)` function
@@ -78,6 +82,21 @@ client/src/
 - **Filters**: date range, client, asset, tag, free-text search
 - **Preview**: Inline preview for images and PDFs via modal dialog
 
+## License Server System
+- **Data Model**: LicenseProduct, LicenseKey, LicenseActivation, WebhookEndpoint (all tenant-scoped)
+- **Key Format**: SNV-XXXX-XXXX-XXXX-XXXX (base32-ish, crypto.randomInt)
+- **Key Storage**: Only SHA-256 hash stored; plaintext shown once at creation
+- **Public Validate API**: POST /api/license/validate (no auth required)
+  - Input: productSlug, licenseKey, deviceFingerprint
+  - Validates: product active, key not revoked, not expired, activation count < max
+  - Creates activation for new deviceFingerprint if valid
+  - Returns: { valid, reason, remainingActivations, expiresAt }
+- **Rate Limiting**: 30 requests/minute per IP on validate endpoint (in-memory)
+- **Security**: Key existence not leaked; generic "invalid_key" response for missing/wrong keys
+- **Admin UI**: Products list/detail, issue keys, view activations, revoke keys (OWNER/ADMIN only)
+- **Developer Tab**: cURL, JavaScript, and Node.js code snippets for validate API integration
+- **Audit Events**: create_license_product, issue_license_key, revoke_license_key, license_validate_activation
+
 ## Key Features
 1. Dashboard with stats, search, and recent uploads
 2. Clients management with detail pages
@@ -89,6 +108,7 @@ client/src/
 8. Billing stub with plan limits
 9. Breadcrumb navigation on detail pages
 10. Module registry with settings page showing enabled modules
+11. License Server - product management, key issuance, activation tracking, public validate API, developer docs
 
 ## Environment Variables
 - `DATABASE_URL` - PostgreSQL connection string (auto-configured)
@@ -107,8 +127,7 @@ client/src/
 - `/api/dashboard` restricted to OWNER/ADMIN/TECH roles server-side
 
 ## Recent Changes
-- Refactored to module-ready architecture: shared/modules registry, server/modules/{core,evidence}/routes.ts, client/src/modules/{core,evidence}/ with barrel exports
-- server/routes.ts is now a slim orchestrator importing module route registrars
-- Settings page shows enabled modules with version, category, and status
-- GET /api/modules endpoint serves module registry to frontend
-- Old client/src/pages/ files kept as re-export stubs for backward compatibility
+- Added License Server module: data model (products, keys, activations, webhooks), storage layer, API routes with rate-limited public validate endpoint, admin UI, developer docs tab
+- Registered license module in shared/modules/index.ts
+- Added sidebar navigation group "License Server" with Licenses and Developer links
+- Refactored to module-ready architecture: shared/modules registry, server/modules/{core,evidence,license}/routes.ts, client/src/modules/{core,evidence,license}/ with barrel exports

@@ -8,6 +8,10 @@ import {
   tags,
   auditLogs,
   clientUserAssignments,
+  licenseProducts,
+  licenseKeys,
+  licenseActivations,
+  webhookEndpoints,
   type Tenant,
   type InsertTenant,
   type TenantMember,
@@ -23,6 +27,14 @@ import {
   type InsertTag,
   type AuditLog,
   type ClientUserAccess,
+  type LicenseProduct,
+  type InsertLicenseProduct,
+  type LicenseKey,
+  type InsertLicenseKey,
+  type LicenseActivation,
+  type InsertLicenseActivation,
+  type WebhookEndpoint,
+  type InsertWebhookEndpoint,
 } from "@shared/schema";
 import { users } from "@shared/models/auth";
 import { db } from "./db";
@@ -101,6 +113,23 @@ export interface IStorage {
   removeClientAccess(tenantId: string, id: string): Promise<void>;
   updateClientAccessCanUpload(tenantId: string, id: string, canUpload: boolean): Promise<void>;
   canUserUploadForClient(userId: string, clientId: string): Promise<boolean>;
+
+  createLicenseProduct(data: InsertLicenseProduct): Promise<LicenseProduct>;
+  getLicenseProductsByTenant(tenantId: string): Promise<LicenseProduct[]>;
+  getLicenseProductById(tenantId: string, id: string): Promise<LicenseProduct | undefined>;
+  getLicenseProductBySlug(tenantId: string, slug: string): Promise<LicenseProduct | undefined>;
+  updateLicenseProduct(tenantId: string, id: string, data: Partial<Pick<LicenseProduct, "name" | "slug" | "description" | "isActive">>): Promise<LicenseProduct | undefined>;
+
+  createLicenseKey(data: InsertLicenseKey): Promise<LicenseKey>;
+  getLicenseKeysByProduct(tenantId: string, productId: string): Promise<LicenseKey[]>;
+  getLicenseKeyById(tenantId: string, id: string): Promise<LicenseKey | undefined>;
+  getLicenseKeyByHash(keyHash: string): Promise<(LicenseKey & { productSlug: string; productIsActive: boolean }) | undefined>;
+  revokeLicenseKey(tenantId: string, id: string): Promise<void>;
+
+  createLicenseActivation(data: InsertLicenseActivation): Promise<LicenseActivation>;
+  getActivationsByKey(tenantId: string, licenseKeyId: string): Promise<LicenseActivation[]>;
+  getActivationCountByKey(licenseKeyId: string): Promise<number>;
+  getActivationByFingerprint(licenseKeyId: string, deviceFingerprint: string): Promise<LicenseActivation | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -616,6 +645,127 @@ export class DatabaseStorage implements IStorage {
         )
       );
     return access?.canUpload ?? false;
+  }
+
+  async createLicenseProduct(data: InsertLicenseProduct): Promise<LicenseProduct> {
+    const [product] = await db.insert(licenseProducts).values(data).returning();
+    return product;
+  }
+
+  async getLicenseProductsByTenant(tenantId: string): Promise<LicenseProduct[]> {
+    return db
+      .select()
+      .from(licenseProducts)
+      .where(eq(licenseProducts.tenantId, tenantId))
+      .orderBy(desc(licenseProducts.createdAt));
+  }
+
+  async getLicenseProductById(tenantId: string, id: string): Promise<LicenseProduct | undefined> {
+    const [product] = await db
+      .select()
+      .from(licenseProducts)
+      .where(and(eq(licenseProducts.tenantId, tenantId), eq(licenseProducts.id, id)));
+    return product;
+  }
+
+  async getLicenseProductBySlug(tenantId: string, slug: string): Promise<LicenseProduct | undefined> {
+    const [product] = await db
+      .select()
+      .from(licenseProducts)
+      .where(and(eq(licenseProducts.tenantId, tenantId), eq(licenseProducts.slug, slug)));
+    return product;
+  }
+
+  async updateLicenseProduct(tenantId: string, id: string, data: Partial<Pick<LicenseProduct, "name" | "slug" | "description" | "isActive">>): Promise<LicenseProduct | undefined> {
+    const [product] = await db
+      .update(licenseProducts)
+      .set(data)
+      .where(and(eq(licenseProducts.tenantId, tenantId), eq(licenseProducts.id, id)))
+      .returning();
+    return product;
+  }
+
+  async createLicenseKey(data: InsertLicenseKey): Promise<LicenseKey> {
+    const [key] = await db.insert(licenseKeys).values(data).returning();
+    return key;
+  }
+
+  async getLicenseKeysByProduct(tenantId: string, productId: string): Promise<LicenseKey[]> {
+    return db
+      .select()
+      .from(licenseKeys)
+      .where(and(eq(licenseKeys.tenantId, tenantId), eq(licenseKeys.productId, productId)))
+      .orderBy(desc(licenseKeys.createdAt));
+  }
+
+  async getLicenseKeyById(tenantId: string, id: string): Promise<LicenseKey | undefined> {
+    const [key] = await db
+      .select()
+      .from(licenseKeys)
+      .where(and(eq(licenseKeys.tenantId, tenantId), eq(licenseKeys.id, id)));
+    return key;
+  }
+
+  async getLicenseKeyByHash(keyHash: string): Promise<(LicenseKey & { productSlug: string; productIsActive: boolean }) | undefined> {
+    const [result] = await db
+      .select({
+        id: licenseKeys.id,
+        tenantId: licenseKeys.tenantId,
+        productId: licenseKeys.productId,
+        keyHash: licenseKeys.keyHash,
+        label: licenseKeys.label,
+        maxActivations: licenseKeys.maxActivations,
+        expiresAt: licenseKeys.expiresAt,
+        isRevoked: licenseKeys.isRevoked,
+        createdAt: licenseKeys.createdAt,
+        productSlug: licenseProducts.slug,
+        productIsActive: licenseProducts.isActive,
+      })
+      .from(licenseKeys)
+      .innerJoin(licenseProducts, eq(licenseKeys.productId, licenseProducts.id))
+      .where(eq(licenseKeys.keyHash, keyHash));
+    return result;
+  }
+
+  async revokeLicenseKey(tenantId: string, id: string): Promise<void> {
+    await db
+      .update(licenseKeys)
+      .set({ isRevoked: true })
+      .where(and(eq(licenseKeys.tenantId, tenantId), eq(licenseKeys.id, id)));
+  }
+
+  async createLicenseActivation(data: InsertLicenseActivation): Promise<LicenseActivation> {
+    const [activation] = await db.insert(licenseActivations).values(data).returning();
+    return activation;
+  }
+
+  async getActivationsByKey(tenantId: string, licenseKeyId: string): Promise<LicenseActivation[]> {
+    return db
+      .select()
+      .from(licenseActivations)
+      .where(and(eq(licenseActivations.tenantId, tenantId), eq(licenseActivations.licenseKeyId, licenseKeyId)))
+      .orderBy(desc(licenseActivations.createdAt));
+  }
+
+  async getActivationCountByKey(licenseKeyId: string): Promise<number> {
+    const [result] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(licenseActivations)
+      .where(eq(licenseActivations.licenseKeyId, licenseKeyId));
+    return result.count;
+  }
+
+  async getActivationByFingerprint(licenseKeyId: string, deviceFingerprint: string): Promise<LicenseActivation | undefined> {
+    const [result] = await db
+      .select()
+      .from(licenseActivations)
+      .where(
+        and(
+          eq(licenseActivations.licenseKeyId, licenseKeyId),
+          eq(licenseActivations.deviceFingerprint, deviceFingerprint)
+        )
+      );
+    return result;
   }
 }
 

@@ -34,7 +34,20 @@ export const evidenceModule: ModuleDefinition = {
   ],
 };
 
-const allModules: ModuleDefinition[] = [coreModule, evidenceModule];
+export const licenseModule: ModuleDefinition = {
+  id: "license",
+  name: "License Server",
+  description: "Issue and validate software license keys with activation tracking, rate-limited public API, and developer documentation.",
+  enabled: true,
+  category: "feature",
+  version: "1.0.0",
+  requiredPlan: "free",
+  navItems: [
+    { title: "Licenses", url: "/licenses", icon: "Key" },
+  ],
+};
+
+const allModules: ModuleDefinition[] = [coreModule, evidenceModule, licenseModule];
 
 export const moduleRegistry: ModuleRegistry = {
   modules: allModules,

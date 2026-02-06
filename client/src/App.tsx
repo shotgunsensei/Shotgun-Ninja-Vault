@@ -30,6 +30,11 @@ import {
   EvidenceDetailPage,
 } from "@/modules/evidence";
 
+import {
+  LicensesPage,
+  DeveloperPage,
+} from "@/modules/license";
+
 import NotFound from "@/pages/not-found";
 
 import type { TenantWithMember } from "@/lib/types";
@@ -92,6 +97,8 @@ function AuthenticatedApp() {
               {isAdminOrOwner && <Route path="/team" component={TeamPage} />}
               {isAdminOrOwner && <Route path="/audit" component={AuditPage} />}
               {isAdminOrOwner && <Route path="/client-access" component={ClientAccessPage} />}
+              {isAdminOrOwner && <Route path="/licenses" component={LicensesPage} />}
+              {isAdminOrOwner && <Route path="/licenses/developer" component={DeveloperPage} />}
               {!isClient && <Route path="/settings" component={SettingsPage} />}
               <Route component={NotFound} />
             </Switch>

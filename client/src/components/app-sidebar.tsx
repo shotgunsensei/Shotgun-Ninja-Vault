@@ -8,6 +8,8 @@ import {
   Building2,
   MapPin,
   KeyRound,
+  Key,
+  Code,
 } from "lucide-react";
 import { useLocation, Link } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
@@ -51,6 +53,11 @@ export function AppSidebar({ role }: AppSidebarProps) {
     { title: "Sites", url: "/sites", icon: MapPin, show: !isClient },
     { title: "Assets", url: "/assets", icon: Server, show: !isClient },
     { title: "Evidence", url: "/evidence", icon: FileText, show: true },
+  ].filter((item) => item.show);
+
+  const licenseNavItems = [
+    { title: "Licenses", url: "/licenses", icon: Key, show: isAdminOrOwner },
+    { title: "Developer", url: "/licenses/developer", icon: Code, show: isAdminOrOwner },
   ].filter((item) => item.show);
 
   const adminNavItems = [
@@ -108,6 +115,32 @@ export function AppSidebar({ role }: AppSidebarProps) {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+        {licenseNavItems.length > 0 && (
+          <SidebarGroup>
+            <SidebarGroupLabel>License Server</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {licenseNavItems.map((item) => (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={
+                        item.url === "/licenses"
+                          ? location === "/licenses"
+                          : location.startsWith(item.url)
+                      }
+                    >
+                      <Link href={item.url} data-testid={`nav-${item.title.toLowerCase().replace(/\s+/g, "-")}`}>
+                        <item.icon className="w-4 h-4" />
+                        <span>{item.title}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
         {adminNavItems.length > 0 && (
           <SidebarGroup>
             <SidebarGroupLabel>Administration</SidebarGroupLabel>

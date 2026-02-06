@@ -3,6 +3,7 @@ import { createServer, type Server } from "http";
 import { setupAuth, registerAuthRoutes } from "./replit_integrations/auth";
 import { registerCoreRoutes } from "./modules/core/routes";
 import { registerEvidenceRoutes } from "./modules/evidence/routes";
+import { registerLicenseRoutes } from "./modules/license/routes";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -13,6 +14,7 @@ export async function registerRoutes(
 
   registerCoreRoutes(app);
   registerEvidenceRoutes(app);
+  registerLicenseRoutes(app);
 
   return httpServer;
 }

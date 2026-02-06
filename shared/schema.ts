@@ -327,6 +327,131 @@ export const auditLogsRelations = relations(auditLogs, ({ one }) => ({
   }),
 }));
 
+export const licenseProducts = pgTable(
+  "license_products",
+  {
+    id: varchar("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    tenantId: varchar("tenant_id")
+      .notNull()
+      .references(() => tenants.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    slug: text("slug").notNull(),
+    description: text("description"),
+    isActive: boolean("is_active").notNull().default(true),
+    createdAt: timestamp("created_at").defaultNow(),
+  },
+  (table) => [
+    index("idx_license_product_tenant").on(table.tenantId),
+    index("idx_license_product_slug").on(table.tenantId, table.slug),
+  ]
+);
+
+export const licenseProductsRelations = relations(licenseProducts, ({ one, many }) => ({
+  tenant: one(tenants, {
+    fields: [licenseProducts.tenantId],
+    references: [tenants.id],
+  }),
+  licenseKeys: many(licenseKeys),
+}));
+
+export const licenseKeys = pgTable(
+  "license_keys",
+  {
+    id: varchar("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    tenantId: varchar("tenant_id")
+      .notNull()
+      .references(() => tenants.id, { onDelete: "cascade" }),
+    productId: varchar("product_id")
+      .notNull()
+      .references(() => licenseProducts.id, { onDelete: "cascade" }),
+    keyHash: text("key_hash").notNull(),
+    label: text("label"),
+    maxActivations: integer("max_activations").notNull().default(1),
+    expiresAt: timestamp("expires_at"),
+    isRevoked: boolean("is_revoked").notNull().default(false),
+    createdAt: timestamp("created_at").defaultNow(),
+  },
+  (table) => [
+    index("idx_license_key_tenant").on(table.tenantId),
+    index("idx_license_key_product").on(table.productId),
+    index("idx_license_key_hash").on(table.keyHash),
+  ]
+);
+
+export const licenseKeysRelations = relations(licenseKeys, ({ one, many }) => ({
+  tenant: one(tenants, {
+    fields: [licenseKeys.tenantId],
+    references: [tenants.id],
+  }),
+  product: one(licenseProducts, {
+    fields: [licenseKeys.productId],
+    references: [licenseProducts.id],
+  }),
+  activations: many(licenseActivations),
+}));
+
+export const licenseActivations = pgTable(
+  "license_activations",
+  {
+    id: varchar("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    tenantId: varchar("tenant_id")
+      .notNull()
+      .references(() => tenants.id, { onDelete: "cascade" }),
+    licenseKeyId: varchar("license_key_id")
+      .notNull()
+      .references(() => licenseKeys.id, { onDelete: "cascade" }),
+    deviceFingerprint: text("device_fingerprint").notNull(),
+    ip: text("ip"),
+    userAgent: text("user_agent"),
+    createdAt: timestamp("created_at").defaultNow(),
+  },
+  (table) => [
+    index("idx_activation_key").on(table.licenseKeyId),
+    index("idx_activation_tenant").on(table.tenantId),
+  ]
+);
+
+export const licenseActivationsRelations = relations(licenseActivations, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [licenseActivations.tenantId],
+    references: [tenants.id],
+  }),
+  licenseKey: one(licenseKeys, {
+    fields: [licenseActivations.licenseKeyId],
+    references: [licenseKeys.id],
+  }),
+}));
+
+export const webhookEndpoints = pgTable(
+  "webhook_endpoints",
+  {
+    id: varchar("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    tenantId: varchar("tenant_id")
+      .notNull()
+      .references(() => tenants.id, { onDelete: "cascade" }),
+    url: text("url").notNull(),
+    secret: text("secret").notNull(),
+    enabled: boolean("enabled").notNull().default(true),
+    createdAt: timestamp("created_at").defaultNow(),
+  },
+  (table) => [index("idx_webhook_tenant").on(table.tenantId)]
+);
+
+export const webhookEndpointsRelations = relations(webhookEndpoints, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [webhookEndpoints.tenantId],
+    references: [tenants.id],
+  }),
+}));
+
 export const insertTenantSchema = createInsertSchema(tenants).omit({
   id: true,
   createdAt: true,
@@ -356,6 +481,22 @@ export const insertClientUserAccessSchema = createInsertSchema(clientUserAssignm
   id: true,
   createdAt: true,
 });
+export const insertLicenseProductSchema = createInsertSchema(licenseProducts).omit({
+  id: true,
+  createdAt: true,
+});
+export const insertLicenseKeySchema = createInsertSchema(licenseKeys).omit({
+  id: true,
+  createdAt: true,
+});
+export const insertLicenseActivationSchema = createInsertSchema(licenseActivations).omit({
+  id: true,
+  createdAt: true,
+});
+export const insertWebhookEndpointSchema = createInsertSchema(webhookEndpoints).omit({
+  id: true,
+  createdAt: true,
+});
 
 export type Tenant = typeof tenants.$inferSelect;
 export type InsertTenant = z.infer<typeof insertTenantSchema>;
@@ -374,3 +515,12 @@ export type AuditLog = typeof auditLogs.$inferSelect;
 export type ClientUserAccess = typeof clientUserAssignments.$inferSelect;
 export type InsertClientUserAccess = z.infer<typeof insertClientUserAccessSchema>;
 export type MemberRole = "OWNER" | "ADMIN" | "TECH" | "CLIENT";
+
+export type LicenseProduct = typeof licenseProducts.$inferSelect;
+export type InsertLicenseProduct = z.infer<typeof insertLicenseProductSchema>;
+export type LicenseKey = typeof licenseKeys.$inferSelect;
+export type InsertLicenseKey = z.infer<typeof insertLicenseKeySchema>;
+export type LicenseActivation = typeof licenseActivations.$inferSelect;
+export type InsertLicenseActivation = z.infer<typeof insertLicenseActivationSchema>;
+export type WebhookEndpoint = typeof webhookEndpoints.$inferSelect;
+export type InsertWebhookEndpoint = z.infer<typeof insertWebhookEndpointSchema>;
