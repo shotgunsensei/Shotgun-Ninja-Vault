@@ -1,0 +1,49 @@
+Build a production-ready multi-tenant SaaS web app called "Shotgun Ninja Vault" (SNV) with a clean UI and strict role-based access control. This app will be deployed on Replit. Start with the core platform + first module: Evidence Locker.
+
+Tech requirements:
+- TypeScript everywhere.
+- Next.js (App Router) for web UI + API routes.
+- PostgreSQL for persistence using Prisma ORM.
+- Replit Auth for login (OIDC) and session handling.
+- Tailwind for styling.
+- Zod for validation.
+- Use server actions where appropriate, but API routes are fine for upload.
+- Implement multi-tenancy: every record belongs to a tenant (organization). Users belong to a tenant and have roles: OWNER, ADMIN, TECH, CLIENT.
+- Add audit logging for key actions (login, upload, delete, permission change).
+
+Core features (must be implemented now):
+1) Authentication using Replit Auth
+2) Tenant creation/onboarding: first user becomes OWNER and creates the org; invite users by email with roles.
+3) Evidence Locker module:
+   - Entities: Client (customer), Site (optional), Asset (device/server), EvidenceItem (file + metadata), Tag
+   - Upload evidence files (screenshots/logs/pdf/txt) and attach to Client/Site/Asset
+   - Tagging and full-text search over EvidenceItem title + notes + tags + asset/client names
+   - Permissions: CLIENT role can only view evidence assigned to their Client(s). TECH can manage evidence. ADMIN/OWNER can manage everything.
+4) Basic billing stub (no payment integration yet): store plan name and limits in DB; enforce soft limits (e.g. max evidence count, max clients). Show warnings in UI.
+
+File storage:
+- Store uploaded files on disk under /tmp or local storage for now with a clear interface layer (StorageProvider) so it can later be swapped to S3. Record file metadata in Postgres.
+
+Deployment readiness:
+- Provide README with step-by-step setup on Replit including required env vars.
+- Provide Prisma migrations and seed script creating demo tenant + demo users if auth is disabled.
+- Include a “DEV_AUTH_BYPASS” env flag: if true, allow a local dev login selector page without Replit Auth (for testing).
+
+UI:
+- Dashboard: stats, recent uploads, search box.
+- Clients list + detail pages.
+- Assets list + detail pages.
+- Evidence upload form with drag/drop and required metadata.
+- Evidence table with filters and quick preview/download.
+
+Security:
+- Strict server-side authorization checks for every query/mutation.
+- Prevent cross-tenant data access at the Prisma query layer.
+- Validate file type and size, store original filename, and scan for path traversal.
+
+Deliverables:
+- Working app running in Replit with `npm run dev`.
+- Prisma schema, migrations, seed.
+- Good folder structure with comments explaining key patterns.
+
+Start by scaffolding the project and implementing the DB schema + auth + tenant system, then build Evidence Locker screens and upload flow.
