@@ -13,7 +13,10 @@ import { registerApiTokenAdminRoutes } from "./modules/api/adminRoutes";
 import { registerAuditSubscriber } from "./core/events/subscribers";
 import { startWebhookWorker } from "./modules/webhooks/worker";
 import { storage } from "./storage";
+import { pool } from "./db";
 
+declare const __APP_VERSION__: string;
+const APP_VERSION = typeof __APP_VERSION__ !== "undefined" ? __APP_VERSION__ : "dev";
 const isApiOnly = process.env.API_ONLY === "true";
 
 export async function registerRoutes(
@@ -22,11 +25,24 @@ export async function registerRoutes(
 ): Promise<Server> {
   registerAuditSubscriber(storage.createAuditLog.bind(storage));
 
+  app.get("/health", async (_req, res) => {
+    let dbOk = false;
+    try {
+      await pool.query("SELECT 1");
+      dbOk = true;
+    } catch {}
+    const status = dbOk ? "ok" : "degraded";
+    res.status(dbOk ? 200 : 503).json({
+      status,
+      mode: isApiOnly ? "api_only" : "full",
+      version: APP_VERSION,
+      database: dbOk ? "connected" : "unreachable",
+    });
+  });
+
   registerApiV1Routes(app);
 
-  if (isApiOnly) {
-    app.get("/health", (_req, res) => res.json({ status: "ok", mode: "api_only" }));
-  } else {
+  if (!isApiOnly) {
     startWebhookWorker();
 
     await setupAuth(app);

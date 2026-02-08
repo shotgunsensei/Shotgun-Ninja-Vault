@@ -108,7 +108,14 @@ Available scopes: `evidence:read`, `license:validate`, `status:read`
 
 ```bash
 curl https://your-app.replit.app/health
-# Returns: { "status": "ok", "mode": "api_only" }
+# Returns: { "status": "ok", "mode": "full", "version": "1.0.0", "database": "connected" }
 ```
 
-The `/health` endpoint is only registered in API-Only mode.
+The `/health` endpoint is available in both full and API-Only modes. It returns:
+
+| Field | Description |
+|-------|-------------|
+| `status` | `"ok"` if healthy, `"degraded"` if DB unreachable (HTTP 503) |
+| `mode` | `"full"` or `"api_only"` |
+| `version` | Version from `package.json` |
+| `database` | `"connected"` or `"unreachable"` |
