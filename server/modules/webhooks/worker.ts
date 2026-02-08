@@ -2,6 +2,7 @@ import crypto from "crypto";
 import { eventBus } from "../../core/events/bus";
 import type { VaultEvent } from "../../core/events/types";
 import { storage } from "../../storage";
+import { validateWebhookUrl, MAX_WEBHOOK_PAYLOAD_BYTES, WEBHOOK_TIMEOUT_MS, MAX_WEBHOOK_RETRIES } from "./urlValidation";
 
 function signPayload(secret: string, timestamp: string, body: string): string {
   return crypto
@@ -33,7 +34,7 @@ async function enqueueDeliveries(event: VaultEvent): Promise<void> {
         payload,
         status: "pending",
         attempts: 0,
-        maxAttempts: 5,
+        maxAttempts: MAX_WEBHOOK_RETRIES,
       });
     }
   } catch (err) {
@@ -51,14 +52,40 @@ async function processDelivery(delivery: any): Promise<void> {
     return;
   }
 
+  const urlCheck = await validateWebhookUrl(endpoint.url);
+  if (!urlCheck.valid) {
+    await storage.updateWebhookDelivery(delivery.id, {
+      status: "failed",
+      responseCode: 0,
+      responseBody: `SSRF blocked: ${urlCheck.reason}`,
+      durationMs: 0,
+      attempts: delivery.attempts + 1,
+      completedAt: new Date(),
+    });
+    return;
+  }
+
   const body = JSON.stringify(delivery.payload);
+
+  if (Buffer.byteLength(body, "utf-8") > MAX_WEBHOOK_PAYLOAD_BYTES) {
+    await storage.updateWebhookDelivery(delivery.id, {
+      status: "failed",
+      responseCode: 0,
+      responseBody: `Payload exceeds maximum size of ${MAX_WEBHOOK_PAYLOAD_BYTES} bytes`,
+      durationMs: 0,
+      attempts: delivery.attempts + 1,
+      completedAt: new Date(),
+    });
+    return;
+  }
+
   const timestamp = Math.floor(Date.now() / 1000).toString();
   const signature = signPayload(endpoint.secret, timestamp, body);
 
   const start = Date.now();
   try {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 10000);
+    const timeout = setTimeout(() => controller.abort(), WEBHOOK_TIMEOUT_MS);
 
     const res = await fetch(endpoint.url, {
       method: "POST",

@@ -5,6 +5,7 @@ import { isAuthenticated } from "../../replit_integrations/auth";
 import { requireRole } from "../../authz";
 import { emitEvent } from "../../core/events/helpers";
 import { z } from "zod";
+import { validateWebhookUrl } from "./urlValidation";
 
 const createWebhookSchema = z.object({
   url: z.string().url(),
@@ -38,6 +39,11 @@ export function registerWebhookRoutes(app: Express) {
         return res.status(400).json({ message: parsed.error.errors[0]?.message || "Invalid input" });
       }
 
+      const urlCheck = await validateWebhookUrl(parsed.data.url);
+      if (!urlCheck.valid) {
+        return res.status(400).json({ message: urlCheck.reason });
+      }
+
       const secret = crypto.randomBytes(32).toString("hex");
 
       const endpoint = await storage.createWebhookEndpoint({
@@ -63,6 +69,13 @@ export function registerWebhookRoutes(app: Express) {
       const parsed = updateWebhookSchema.safeParse(req.body);
       if (!parsed.success) {
         return res.status(400).json({ message: parsed.error.errors[0]?.message || "Invalid input" });
+      }
+
+      if (parsed.data.url) {
+        const urlCheck = await validateWebhookUrl(parsed.data.url);
+        if (!urlCheck.valid) {
+          return res.status(400).json({ message: urlCheck.reason });
+        }
       }
 
       const updated = await storage.updateWebhookEndpoint(tenantId, req.params.id, parsed.data);
