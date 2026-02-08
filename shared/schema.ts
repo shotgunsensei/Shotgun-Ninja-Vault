@@ -697,6 +697,36 @@ export const insertReportJobSchema = createInsertSchema(reportJobs).omit({
   updatedAt: true,
 });
 
+export const apiTokens = pgTable(
+  "api_tokens",
+  {
+    id: varchar("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    tenantId: varchar("tenant_id")
+      .notNull()
+      .references(() => tenants.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    tokenHash: text("token_hash").notNull().unique(),
+    scopes: text("scopes").array().notNull(),
+    enabled: boolean("enabled").notNull().default(true),
+    lastUsedAt: timestamp("last_used_at"),
+    createdAt: timestamp("created_at").defaultNow(),
+    updatedAt: timestamp("updated_at").defaultNow(),
+  },
+  (table) => [index("api_tokens_tenant_idx").on(table.tenantId), index("api_tokens_hash_idx").on(table.tokenHash)]
+);
+
+export const insertApiTokenSchema = createInsertSchema(apiTokens).omit({
+  id: true,
+  lastUsedAt: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type ApiToken = typeof apiTokens.$inferSelect;
+export type InsertApiToken = z.infer<typeof insertApiTokenSchema>;
+
 export type Tenant = typeof tenants.$inferSelect;
 export type InsertTenant = z.infer<typeof insertTenantSchema>;
 export type TenantMember = typeof tenantMembers.$inferSelect;

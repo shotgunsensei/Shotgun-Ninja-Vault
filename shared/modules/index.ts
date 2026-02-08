@@ -151,6 +151,27 @@ export const reportsModule: VaultModuleManifest = {
   roles: ["OWNER", "ADMIN", "TECH"],
 };
 
+export const apiModule: VaultModuleManifest = {
+  id: "api",
+  name: "API Access",
+  description: "Token-based API access for programmatic integration. Manage API tokens, scopes, and access the /api/v1 endpoints.",
+  enabled: true,
+  category: "feature",
+  version: "1.0.0",
+  requiredPlan: "free",
+  server: {
+    mountPath: "/api/v1",
+    routesFile: "server/modules/api/routes.ts",
+    emits: [],
+  },
+  client: {
+    adminNavItems: [
+      { title: "API Tokens", url: "/api-tokens", icon: "Key", roles: ["OWNER", "ADMIN"] },
+    ],
+  },
+  roles: ["OWNER", "ADMIN"],
+};
+
 export const portalModule: VaultModuleManifest = {
   id: "portal",
   name: "Client Portal",
@@ -173,7 +194,7 @@ export const portalModule: VaultModuleManifest = {
   roles: ["CLIENT"],
 };
 
-const allModules: VaultModuleManifest[] = [coreModule, evidenceModule, licenseModule, webhooksModule, statusModule, reportsModule, portalModule];
+const allModules: VaultModuleManifest[] = [coreModule, evidenceModule, licenseModule, webhooksModule, statusModule, reportsModule, apiModule, portalModule];
 
 export const moduleRegistry: ModuleRegistry = {
   modules: allModules,

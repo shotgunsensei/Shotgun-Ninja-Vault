@@ -81,6 +81,7 @@ export function AppSidebar({ role }: AppSidebarProps) {
     { title: "Team", url: "/team", icon: Building2, show: isAdminOrOwner },
     { title: "Client Access", url: "/client-access", icon: KeyRound, show: isAdminOrOwner },
     { title: "Audit Log", url: "/audit", icon: Shield, show: isAdminOrOwner },
+    { title: "API Tokens", url: "/api-tokens", icon: Key, show: isAdminOrOwner },
     { title: "Settings", url: "/settings", icon: Settings, show: !isClient },
   ].filter((item) => item.show);
 

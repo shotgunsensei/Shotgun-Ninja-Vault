@@ -38,6 +38,13 @@ The application follows a modular architecture.
 - **User and Team Management**: Role-based access control, user invitations, and management of client assignments.
 - **Dashboard**: Provides an overview of key statistics and recent activity, tailored to user roles.
 
+### API Access Module
+- **Schema**: apiTokens table (id, tenantId, name, tokenHash SHA-256, scopes text[], enabled, lastUsedAt, createdAt, updatedAt)
+- **Auth Middleware** (server/core/apiAuth.ts): Bearer token validation, scope enforcement, req.apiAuth context
+- **API v1 Endpoints**: GET /api/v1/openapi.json, GET /api/v1/status/:slug (public), GET /api/v1/evidence (evidence:read), POST /api/v1/license/validate (license:validate)
+- **Admin UI**: /api-tokens page for OWNER/ADMIN with create/revoke, one-time plaintext display
+- **API_ONLY Mode**: env API_ONLY=true disables SPA + session auth, serves only /api/v1 + /health
+
 ## External Dependencies
 - **PostgreSQL**: Primary database for all application data.
 - **Replit Auth (OIDC)**: Used for user authentication.

@@ -50,6 +50,8 @@ import {
   reportJobs,
   type ReportJob,
   type InsertReportJob,
+  apiTokens,
+  type ApiToken,
 } from "@shared/schema";
 import { users } from "@shared/models/auth";
 import { db } from "./db";
@@ -189,6 +191,12 @@ export interface IStorage {
   updateReportJobStatus(id: string, tenantId: string, status: string, updates?: { outputPath?: string; errorMessage?: string }): Promise<ReportJob | undefined>;
   getReportJob(tenantId: string, id: string): Promise<ReportJob | undefined>;
   listReportJobs(tenantId: string): Promise<ReportJob[]>;
+
+  createApiToken(data: { tenantId: string; name: string; scopes: string[]; tokenHash: string }): Promise<ApiToken>;
+  listApiTokens(tenantId: string): Promise<ApiToken[]>;
+  revokeApiToken(tenantId: string, id: string): Promise<void>;
+  validateApiToken(tokenHash: string): Promise<{ tenantId: string; tokenId: string; scopes: string[] } | null>;
+  updateApiTokenLastUsed(id: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1034,6 +1042,29 @@ export class DatabaseStorage implements IStorage {
 
   async listReportJobs(tenantId: string): Promise<ReportJob[]> {
     return db.select().from(reportJobs).where(eq(reportJobs.tenantId, tenantId)).orderBy(desc(reportJobs.createdAt));
+  }
+
+  async createApiToken(data: { tenantId: string; name: string; scopes: string[]; tokenHash: string }): Promise<ApiToken> {
+    const [token] = await db.insert(apiTokens).values(data).returning();
+    return token;
+  }
+
+  async listApiTokens(tenantId: string): Promise<ApiToken[]> {
+    return db.select().from(apiTokens).where(eq(apiTokens.tenantId, tenantId)).orderBy(desc(apiTokens.createdAt));
+  }
+
+  async revokeApiToken(tenantId: string, id: string): Promise<void> {
+    await db.update(apiTokens).set({ enabled: false, updatedAt: new Date() }).where(and(eq(apiTokens.id, id), eq(apiTokens.tenantId, tenantId)));
+  }
+
+  async validateApiToken(tokenHash: string): Promise<{ tenantId: string; tokenId: string; scopes: string[] } | null> {
+    const [token] = await db.select().from(apiTokens).where(and(eq(apiTokens.tokenHash, tokenHash), eq(apiTokens.enabled, true)));
+    if (!token) return null;
+    return { tenantId: token.tenantId, tokenId: token.id, scopes: token.scopes };
+  }
+
+  async updateApiTokenLastUsed(id: string): Promise<void> {
+    await db.update(apiTokens).set({ lastUsedAt: new Date() }).where(eq(apiTokens.id, id));
   }
 }
 
