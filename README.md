@@ -1,85 +1,116 @@
 # Shotgun Ninja Vault (SNV)
 
-Shotgun Ninja Vault (SNV) is a **multi-tenant, security-first evidence + licensing platform** designed for MSPs, IT teams, and digital creators who need verifiable proof, controlled access, and auditable history — without enterprise bloat.
-
-It currently ships with three enabled modules:
-
-- **Core Platform** (tenants, roles, team, audit log, client access)
-- **Evidence Locker** (uploads, tags, search, preview, SHA-256 dedup)
-- **License Server** (products, keys, validation API, activations)
-
-Planned modules (roadmap): status pages, compliance report builder, MSP client portal bundles, API-only mode.
+**v1.0.0** — Multi-tenant, security-first evidence and licensing platform for MSPs, IT teams, and digital creators.
 
 ---
 
-## Stack (what this repo actually runs)
+## Modules
 
-- **Frontend**: React + Vite + TypeScript  
-  wouter (routing), TanStack Query (data), shadcn/ui + Tailwind (UI)
-- **Backend**: Express + TypeScript (single port; serves API + UI)
+SNV ships with **8 modules**, all enabled by default:
+
+| Module | Description |
+|--------|-------------|
+| **Core Platform** | Tenants, users, roles (OWNER/ADMIN/TECH/CLIENT), clients, sites, assets, audit log |
+| **Evidence Locker** | Upload, tag, search, preview, and download evidence files with SHA-256 deduplication |
+| **License Server** | Products, key issuance/revocation, activation tracking, public validation API |
+| **Webhooks** | Outbound delivery with HMAC-SHA256 signing, retries, SSRF protection, delivery logs |
+| **Status Pages** | Public status pages with component monitoring and incident tracking |
+| **Compliance Reports** | ZIP evidence packets with manifest, checksums, audit trail |
+| **API Access** | Token-based `/api/v1` endpoints, scoped permissions, headless `API_ONLY` mode |
+| **Client Portal** | Read-only portal for CLIENT role users scoped to their assigned clients |
+
+---
+
+## Stack
+
+- **Frontend**: React 18 + Vite + TypeScript, wouter (routing), TanStack Query v5 (data), shadcn/ui + Tailwind CSS (UI)
+- **Backend**: Express + TypeScript (single port serves API and SPA)
 - **Database**: PostgreSQL + Drizzle ORM
-- **Auth**: Replit Auth (OIDC) via passport/openid-client  
-  **Optional dev bypass**: `DEV_AUTH_BYPASS=true` (non-production only)
-- **Storage**: local disk via `StorageProvider` abstraction (S3-ready)
-
-> Note: If you saw older docs referencing Next.js/Prisma, that was an earlier direction. This repo is Vite + Express + Drizzle.
+- **Auth**: Replit Auth (OIDC) via passport / openid-client
+- **Storage**: Local disk via `StorageProvider` abstraction (S3-ready)
+- **Events**: In-process typed event bus with automatic audit logging
 
 ---
 
-## Quick start (Replit)
+## Quick Start (Replit)
 
-1. Import repo into Replit
-2. `npm install`
-3. Create a Postgres DB in Replit (or attach external Postgres) and set secrets:
+1. **Create a Repl** — import this repo or fork the project.
+2. **Provision a database** — use the built-in Replit Postgres (automatically sets `DATABASE_URL`).
+3. **Set required secrets** in the Secrets tab:
 
-### Required secrets
+   | Secret | Purpose |
+   |--------|---------|
+   | `DATABASE_URL` | PostgreSQL connection string (auto-set by Replit DB) |
+   | `SESSION_SECRET` | Random string for signing session cookies |
 
-- `DATABASE_URL` (postgres connection string)
-- `SESSION_SECRET` (random long string)
+   Replit Auth secrets (`REPL_ID`, `ISSUER_URL`) are provided automatically when Auth is configured.
 
-### Replit Auth (OIDC) secrets (production / real login)
+4. **Push the schema**:
+   ```
+   npm run db:push
+   ```
+5. **Run**:
+   ```
+   npm run dev
+   ```
 
-- `REPL_ID` (Replit OIDC client id)
-- `ISSUER_URL` (usually `https://replit.com/oidc`)
+The app starts on port 5000 and serves both the API and the frontend.
 
-### Optional secrets
+### Production build
 
-- `MAX_UPLOAD_MB` (default enforced in server if present)
-- `DEV_AUTH_BYPASS` (`true` to bypass OIDC in dev only)
-- `DEV_USER_ID` (default: `dev-user`)
-- `DEV_USER_EMAIL` (default: `dev@localhost`)
-- `DEV_TENANT_SLUG` (default: `dev`)
-
-4. Initialize schema:
-   - `npm run db:push`
-
-5. Run:
-   - `npm run dev`
-
-Deployment build/start:
-- Build: `npm run build`
-- Start: `npm run start`
+```
+npm run build
+npm run start
+```
 
 ---
 
-## Module system
+## Optional Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `MAX_UPLOAD_MB` | `25` | Max evidence upload size in MB |
+| `API_ONLY` | `false` | Headless mode — serves only `/api/v1` and `/health` |
+| `ALLOW_INTERNAL_WEBHOOKS` | `false` | Permit webhook URLs targeting private IPs (dev only) |
+| `DEV_AUTH_BYPASS` | `false` | Skip OIDC login in development |
+| `DEV_USER_ID` | `dev-user` | User ID when auth bypass is active |
+| `DEV_USER_EMAIL` | `dev@localhost` | Email when auth bypass is active |
+| `DEV_TENANT_SLUG` | `dev` | Tenant slug when auth bypass is active |
+
+---
+
+## Module System
 
 Modules are registered in `shared/modules/index.ts` and implemented as:
 
-- server routes: `server/modules/<module>/routes.ts`
-- client pages: `client/src/modules/<module>/...`
+- **Server routes**: `server/modules/<module>/routes.ts`
+- **Client pages**: `client/src/modules/<module>/...`
 
-Enabled modules inject navigation items into the sidebar.
+Each module declares its own events, navigation items, and role restrictions. Enabled modules automatically appear in the sidebar.
 
 ---
 
-## Security notes (non-negotiables)
+## Security
 
-- Tenant scoping is enforced server-side (queries are tenant-filtered)
-- Role checks are enforced server-side
-- Uploads are validated and hashed (SHA-256) for dedup + integrity tracking
-- License keys are **hashed at rest** (no plaintext storage)
-- Audit logs are append-only
+- Tenant-scoped data isolation on every query
+- Role-based authorization enforced server-side
+- Uploads validated and hashed (SHA-256) for integrity and dedup
+- API tokens and license keys stored as SHA-256 hashes
+- Webhook payloads signed with HMAC-SHA256; SSRF protection with DNS lookup
+- Session cookies: httpOnly, secure, sameSite=lax
+- Security headers and CSP in production
+- Append-only audit log
+
+See [docs/SECURITY.md](docs/SECURITY.md) for full details.
+
+---
+
+## Documentation
+
+- [Release Notes v1.0.0](docs/RELEASE_NOTES_v1.md)
+- [Security Policy](docs/SECURITY.md)
+- [Deployment Guide (Replit)](docs/DEPLOYMENT_REPLIT.md)
+- [Test Checklist](docs/TEST_CHECKLIST.md)
 
 ---
 
