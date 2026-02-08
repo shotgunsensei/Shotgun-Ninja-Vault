@@ -45,6 +45,15 @@ The application follows a modular architecture.
 - **Admin UI**: /api-tokens page for OWNER/ADMIN with create/revoke, one-time plaintext display
 - **API_ONLY Mode**: env API_ONLY=true disables SPA + session auth, serves only /api/v1 + /health
 
+### Billing Module
+- **Schema**: subscriptionPlans (code, name, monthlyPriceCents, limits JSON), tenantSubscriptions (tenantId, stripeCustomerId, stripeSubscriptionId, stripePriceId, planCode, status, currentPeriodEnd, cancelAtPeriodEnd), usageCountersMonthly (tenantId, monthKey YYYY-MM, reportsGenerated, webhookDeliveries, evidenceBytesStored)
+- **Plans**: solo ($0), pro ($29), msp ($99), enterprise ($299) - seeded on startup via seedSubscriptionPlans()
+- **Plan Enforcement**: server/core/billing/enforcePlan.ts - requireFeature() and checkLimit() middleware (not in authz.ts)
+- **Stripe Integration**: server/modules/billing/stripe.ts (client init, plan seeding), webhook.ts (checkout.session.completed, subscription updates/deletions), routes.ts (plans, subscription, checkout-session, customer-portal)
+- **Usage Tracking**: Reports increment reportsGenerated counter on job creation; webhooks increment webhookDeliveries on delivery attempt
+- **Client Pages**: /billing (plan cards, usage dashboard, Stripe checkout/portal), /billing/success, /billing/cancel
+- **Env Vars**: STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, STRIPE_PRICE_SOLO, STRIPE_PRICE_PRO, STRIPE_PRICE_MSP, APP_URL
+
 ## External Dependencies
 - **PostgreSQL**: Primary database for all application data.
 - **Replit Auth (OIDC)**: Used for user authentication.

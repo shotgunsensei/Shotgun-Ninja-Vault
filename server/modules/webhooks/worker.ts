@@ -52,6 +52,9 @@ async function processDelivery(delivery: any): Promise<void> {
     return;
   }
 
+  const monthKey = new Date().toISOString().slice(0, 7);
+  await storage.incrementUsageCounter(delivery.tenantId, monthKey, "webhookDeliveries").catch(() => {});
+
   const urlCheck = await validateWebhookUrl(endpoint.url);
   if (!urlCheck.valid) {
     await storage.updateWebhookDelivery(delivery.id, {

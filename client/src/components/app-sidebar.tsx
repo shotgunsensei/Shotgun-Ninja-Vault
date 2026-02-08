@@ -14,6 +14,7 @@ import {
   Activity,
   ClipboardList,
   Home,
+  CreditCard,
 } from "lucide-react";
 import logoImage from "@assets/ShotgunNinjaVaulticon_1770412982737.png";
 import { useLocation, Link } from "wouter";
@@ -82,6 +83,7 @@ export function AppSidebar({ role }: AppSidebarProps) {
     { title: "Client Access", url: "/client-access", icon: KeyRound, show: isAdminOrOwner },
     { title: "Audit Log", url: "/audit", icon: Shield, show: isAdminOrOwner },
     { title: "API Tokens", url: "/api-tokens", icon: Key, show: isAdminOrOwner },
+    { title: "Billing", url: "/billing", icon: CreditCard, show: isAdminOrOwner },
     { title: "Settings", url: "/settings", icon: Settings, show: !isClient },
   ].filter((item) => item.show);
 

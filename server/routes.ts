@@ -12,6 +12,9 @@ import { registerApiV1Routes } from "./modules/api/routes";
 import { registerApiTokenAdminRoutes } from "./modules/api/adminRoutes";
 import { registerAuditSubscriber } from "./core/events/subscribers";
 import { startWebhookWorker } from "./modules/webhooks/worker";
+import { registerBillingRoutes } from "./modules/billing/routes";
+import { registerStripeWebhook } from "./modules/billing/webhook";
+import { seedSubscriptionPlans } from "./modules/billing/stripe";
 import { storage } from "./storage";
 import { pool } from "./db";
 
@@ -42,6 +45,12 @@ export async function registerRoutes(
 
   registerApiV1Routes(app);
 
+  registerStripeWebhook(app);
+
+  await seedSubscriptionPlans().catch((err) =>
+    console.error("[billing] Failed to seed subscription plans:", err)
+  );
+
   if (!isApiOnly) {
     startWebhookWorker();
 
@@ -56,6 +65,7 @@ export async function registerRoutes(
     registerReportRoutes(app);
     registerPortalRoutes(app);
     registerApiTokenAdminRoutes(app);
+    registerBillingRoutes(app);
   }
 
   return httpServer;

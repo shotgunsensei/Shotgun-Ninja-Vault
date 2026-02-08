@@ -1,0 +1,128 @@
+You are working in the existing Shotgun Ninja Vault (SNV) repo (Express+TS server, Vite+React client, Postgres+Drizzle). Do NOT change frameworks or refactor modules unnecessarily.
+
+GOAL: Implement Stripe subscription monetization + plan enforcement for tenants.
+
+High-level requirements:
+- Use Stripe Billing subscriptions via Stripe Checkout for new subscriptions and Customer Portal for changes/cancellations.
+- Maintain subscription status per tenant in DB, updated via Stripe webhooks.
+- Enforce plan gates/limits in the server using a middleware that runs before module routes.
+
+Stripe implementation notes:
+- Stripe webhook signature verification requires the RAW request body. Create a dedicated Express route using express.raw({type:'application/json'}) and do not run JSON body parsing on that route.
+- Use the official stripe Node SDK. Keep code minimal and documented.
+
+1) Database changes (shared/schema.ts):
+Add tables:
+A) subscriptionPlans (seeded in code, not user-editable initially)
+- id (uuid pk)
+- code (text unique)  // solo|pro|msp|enterprise
+- name (text)
+- monthlyPriceCents (int)  // for display only
+- limits (jsonb) // {usersMax, storageGb, reportsPerMonth, webhooksMax, apiEnabled, portalEnabled, statusEnabled}
+- createdAt, updatedAt
+
+B) tenantSubscriptions
+- id (uuid pk)
+- tenantId (fk tenants unique)
+- stripeCustomerId (text nullable)
+- stripeSubscriptionId (text nullable)
+- stripePriceId (text nullable)
+- planCode (text)  // references subscriptionPlans.code
+- status (text enum: trialing|active|past_due|canceled|incomplete|incomplete_expired|unpaid)
+- currentPeriodEnd (timestamp nullable)
+- cancelAtPeriodEnd (boolean default false)
+- createdAt, updatedAt
+
+C) usageCountersMonthly
+- id (uuid pk)
+- tenantId (fk)
+- monthKey (text) // YYYY-MM
+- reportsGenerated (int default 0)
+- webhookDeliveries (int default 0)
+- evidenceBytesStored (bigint default 0) // optional, best-effort
+- createdAt, updatedAt
+Unique (tenantId, monthKey)
+
+2) Server: Stripe plumbing
+Create server/modules/billing/ with:
+- stripe.ts: initializes Stripe from STRIPE_SECRET_KEY and exports helper functions
+- routes.ts: authenticated routes
+- webhook.ts: webhook handler using raw body
+
+Add required env vars documented in docs/DEPLOYMENT_REPLIT.md:
+- STRIPE_SECRET_KEY
+- STRIPE_WEBHOOK_SECRET
+- APP_URL (your domain base)
+- STRIPE_PRICE_SOLO
+- STRIPE_PRICE_PRO
+- STRIPE_PRICE_MSP
+(Enterprise is handled manually for now)
+
+3) Server routes (authenticated, OWNER/ADMIN):
+- GET /api/billing/plans -> returns available plans + current tenant subscription
+- POST /api/billing/checkout-session -> body {planCode} creates Stripe Checkout session for subscription
+  - success_url = APP_URL + "/billing/success"
+  - cancel_url = APP_URL + "/billing/cancel"
+  - include tenantId in Stripe metadata
+- POST /api/billing/customer-portal -> returns a Stripe billing portal URL
+- GET /api/billing/subscription -> returns tenantSubscriptions row
+
+4) Stripe webhook endpoint (public):
+- POST /api/stripe/webhook using express.raw({type:'application/json'})
+- Verify signature using STRIPE_WEBHOOK_SECRET.
+- Handle events at minimum:
+  - checkout.session.completed (create customer/subscription mapping)
+  - customer.subscription.created/updated/deleted (update tenantSubscriptions)
+  - invoice.payment_failed (set past_due)
+  - invoice.paid (set active)
+- Use Stripe event’s metadata. Ensure tenantId mapping is correct and tenant isolated.
+- Emit SNV events via emitEvent:
+  billing.subscription_updated
+  billing.payment_failed
+
+5) Plan enforcement middleware:
+Create server/core/billing/enforcePlan.ts that:
+- Loads tenant plan + limits
+- Provides helper guard functions:
+  requireFeature('api'|'portal'|'status'|'webhooks'|'reports')
+  checkLimit('usersMax'|'webhooksMax'|'reportsPerMonth'|'storageGb')
+- Apply enforcement in server/routes.ts BEFORE registering module routes:
+  - API module: blocked if apiEnabled=false
+  - Portal module: blocked if portalEnabled=false
+  - Status module: blocked if statusEnabled=false
+  - Webhooks: prevent creating more endpoints than webhooksMax
+  - Reports: prevent generating more than reportsPerMonth in current monthKey
+- If blocked, return 402 Payment Required with JSON {error:'plan_required', requiredPlan:'pro', feature:'api'}
+
+6) Usage tracking:
+- Increment usageCountersMonthly.reportsGenerated when a report job completes successfully.
+- Increment usageCountersMonthly.webhookDeliveries when a webhook delivery is attempted (or succeeds—pick one and document).
+- evidenceBytesStored optional: update when evidence is uploaded if file size is available.
+
+7) Client UI:
+Add client/src/modules/billing/:
+- /billing page visible to OWNER/ADMIN:
+  - Shows current plan, status, renewal date, limits
+  - Shows available plans with “Upgrade” button -> calls checkout-session and redirects
+  - “Manage billing” button -> customer portal
+- /billing/success and /billing/cancel pages with clear messaging
+
+Add module manifest entry in shared/modules/index.ts:
+- id: "billing"
+- nav label: "Billing"
+- path: "/billing"
+- roles: OWNER/ADMIN
+
+8) Safety / correctness:
+- Do not store Stripe secret values in DB.
+- Store only IDs and statuses.
+- Ensure webhook handler cannot be broken by bodyParser JSON.
+- Keep TypeScript strict; no any except where Stripe types force it.
+
+Acceptance criteria:
+- A tenant can start a subscription via Checkout and be redirected back.
+- Stripe webhook updates tenantSubscriptions correctly.
+- Plan enforcement blocks features when not entitled.
+- Billing page shows plan + upgrade/manage actions.
+- npm run build passes and tsc --noEmit passes.
+- List all files changed and any manual steps (Stripe dashboard setup) at the end.

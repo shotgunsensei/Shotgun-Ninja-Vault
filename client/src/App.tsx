@@ -40,6 +40,7 @@ import { StatusAdminPage, PublicStatusPage } from "@/modules/status";
 import { ReportsPage } from "@/modules/reports";
 import { PortalHomePage, PortalClientDetailPage, PortalEvidencePage } from "@/modules/portal";
 import { ApiTokensPage } from "@/modules/api";
+import { BillingPage, BillingSuccessPage, BillingCancelPage } from "@/modules/billing";
 
 import NotFound from "@/pages/not-found";
 
@@ -115,6 +116,9 @@ function AuthenticatedApp() {
               {isAdminOrOwner && <Route path="/webhooks" component={WebhooksPage} />}
               {isAdminOrOwner && <Route path="/status-admin" component={StatusAdminPage} />}
               {isAdminOrOwner && <Route path="/api-tokens" component={ApiTokensPage} />}
+              {isAdminOrOwner && <Route path="/billing" component={BillingPage} />}
+              {isAdminOrOwner && <Route path="/billing/success" component={BillingSuccessPage} />}
+              {isAdminOrOwner && <Route path="/billing/cancel" component={BillingCancelPage} />}
               {!isClient && <Route path="/reports" component={ReportsPage} />}
               {!isClient && <Route path="/settings" component={SettingsPage} />}
               <Route component={NotFound} />

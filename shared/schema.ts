@@ -727,6 +727,121 @@ export const insertApiTokenSchema = createInsertSchema(apiTokens).omit({
 export type ApiToken = typeof apiTokens.$inferSelect;
 export type InsertApiToken = z.infer<typeof insertApiTokenSchema>;
 
+import { bigint, uniqueIndex } from "drizzle-orm/pg-core";
+
+export const subscriptionPlans = pgTable("subscription_plans", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  code: text("code").notNull().unique(),
+  name: text("name").notNull(),
+  monthlyPriceCents: integer("monthly_price_cents").notNull().default(0),
+  limits: jsonb("limits").notNull().default({}),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertSubscriptionPlanSchema = createInsertSchema(subscriptionPlans).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type SubscriptionPlan = typeof subscriptionPlans.$inferSelect;
+export type InsertSubscriptionPlan = z.infer<typeof insertSubscriptionPlanSchema>;
+
+export const subscriptionStatusEnum = pgEnum("subscription_status", [
+  "trialing",
+  "active",
+  "past_due",
+  "canceled",
+  "incomplete",
+  "incomplete_expired",
+  "unpaid",
+]);
+
+export const tenantSubscriptions = pgTable("tenant_subscriptions", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id")
+    .notNull()
+    .references(() => tenants.id, { onDelete: "cascade" })
+    .unique(),
+  stripeCustomerId: text("stripe_customer_id"),
+  stripeSubscriptionId: text("stripe_subscription_id"),
+  stripePriceId: text("stripe_price_id"),
+  planCode: text("plan_code").notNull().default("solo"),
+  status: text("status").notNull().default("trialing"),
+  currentPeriodEnd: timestamp("current_period_end"),
+  cancelAtPeriodEnd: boolean("cancel_at_period_end").notNull().default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const tenantSubscriptionsRelations = relations(tenantSubscriptions, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [tenantSubscriptions.tenantId],
+    references: [tenants.id],
+  }),
+}));
+
+export const insertTenantSubscriptionSchema = createInsertSchema(tenantSubscriptions).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type TenantSubscription = typeof tenantSubscriptions.$inferSelect;
+export type InsertTenantSubscription = z.infer<typeof insertTenantSubscriptionSchema>;
+
+export const usageCountersMonthly = pgTable(
+  "usage_counters_monthly",
+  {
+    id: varchar("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    tenantId: varchar("tenant_id")
+      .notNull()
+      .references(() => tenants.id, { onDelete: "cascade" }),
+    monthKey: text("month_key").notNull(),
+    reportsGenerated: integer("reports_generated").notNull().default(0),
+    webhookDeliveries: integer("webhook_deliveries").notNull().default(0),
+    evidenceBytesStored: bigint("evidence_bytes_stored", { mode: "number" }).notNull().default(0),
+    createdAt: timestamp("created_at").defaultNow(),
+    updatedAt: timestamp("updated_at").defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("idx_usage_tenant_month").on(table.tenantId, table.monthKey),
+  ]
+);
+
+export const usageCountersMonthlyRelations = relations(usageCountersMonthly, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [usageCountersMonthly.tenantId],
+    references: [tenants.id],
+  }),
+}));
+
+export const insertUsageCounterSchema = createInsertSchema(usageCountersMonthly).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type UsageCounter = typeof usageCountersMonthly.$inferSelect;
+export type InsertUsageCounter = z.infer<typeof insertUsageCounterSchema>;
+
+export interface PlanLimits {
+  usersMax: number;
+  storageGb: number;
+  reportsPerMonth: number;
+  webhooksMax: number;
+  apiEnabled: boolean;
+  portalEnabled: boolean;
+  statusEnabled: boolean;
+}
+
 export type Tenant = typeof tenants.$inferSelect;
 export type InsertTenant = z.infer<typeof insertTenantSchema>;
 export type TenantMember = typeof tenantMembers.$inferSelect;

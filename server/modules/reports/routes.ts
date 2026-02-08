@@ -41,6 +41,9 @@ export function registerReportRoutes(app: Express) {
 
         await emitEvent("report.job_created", tenantId, userId, "report_job", job.id, { type: "evidence_packet", params });
 
+        const monthKey = new Date().toISOString().slice(0, 7);
+        await storage.incrementUsageCounter(tenantId, monthKey, "reportsGenerated").catch(() => {});
+
         generateEvidencePacket(job.id, tenantId, userId, params).catch((err) => {
           console.error("[reports] Evidence packet generation failed:", err);
         });

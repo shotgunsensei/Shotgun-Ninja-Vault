@@ -52,6 +52,14 @@ import {
   type InsertReportJob,
   apiTokens,
   type ApiToken,
+  subscriptionPlans,
+  type SubscriptionPlan,
+  type InsertSubscriptionPlan,
+  tenantSubscriptions,
+  type TenantSubscription,
+  type InsertTenantSubscription,
+  usageCountersMonthly,
+  type UsageCounter,
 } from "@shared/schema";
 import { users } from "@shared/models/auth";
 import { db } from "./db";
@@ -197,6 +205,22 @@ export interface IStorage {
   revokeApiToken(tenantId: string, id: string): Promise<void>;
   validateApiToken(tokenHash: string): Promise<{ tenantId: string; tokenId: string; scopes: string[] } | null>;
   updateApiTokenLastUsed(id: string): Promise<void>;
+
+  getAllSubscriptionPlans(): Promise<SubscriptionPlan[]>;
+  getSubscriptionPlanByCode(code: string): Promise<SubscriptionPlan | undefined>;
+  upsertSubscriptionPlan(data: InsertSubscriptionPlan): Promise<SubscriptionPlan>;
+
+  getTenantSubscription(tenantId: string): Promise<TenantSubscription | undefined>;
+  upsertTenantSubscription(data: InsertTenantSubscription): Promise<TenantSubscription>;
+  updateTenantSubscription(tenantId: string, data: Partial<Omit<TenantSubscription, "id" | "tenantId" | "createdAt">>): Promise<TenantSubscription | undefined>;
+  getTenantSubscriptionByStripeCustomerId(stripeCustomerId: string): Promise<TenantSubscription | undefined>;
+  getTenantSubscriptionByStripeSubscriptionId(stripeSubscriptionId: string): Promise<TenantSubscription | undefined>;
+
+  getOrCreateUsageCounter(tenantId: string, monthKey: string): Promise<UsageCounter>;
+  incrementUsageCounter(tenantId: string, monthKey: string, field: "reportsGenerated" | "webhookDeliveries", amount?: number): Promise<void>;
+  incrementEvidenceBytes(tenantId: string, monthKey: string, bytes: number): Promise<void>;
+  getWebhookEndpointCountByTenant(tenantId: string): Promise<number>;
+  getMemberCountByTenant(tenantId: string): Promise<number>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1065,6 +1089,118 @@ export class DatabaseStorage implements IStorage {
 
   async updateApiTokenLastUsed(id: string): Promise<void> {
     await db.update(apiTokens).set({ lastUsedAt: new Date() }).where(eq(apiTokens.id, id));
+  }
+
+  async getAllSubscriptionPlans(): Promise<SubscriptionPlan[]> {
+    return db.select().from(subscriptionPlans).orderBy(subscriptionPlans.monthlyPriceCents);
+  }
+
+  async getSubscriptionPlanByCode(code: string): Promise<SubscriptionPlan | undefined> {
+    const [plan] = await db.select().from(subscriptionPlans).where(eq(subscriptionPlans.code, code));
+    return plan;
+  }
+
+  async upsertSubscriptionPlan(data: InsertSubscriptionPlan): Promise<SubscriptionPlan> {
+    const [plan] = await db
+      .insert(subscriptionPlans)
+      .values(data)
+      .onConflictDoUpdate({
+        target: subscriptionPlans.code,
+        set: { name: data.name, monthlyPriceCents: data.monthlyPriceCents, limits: data.limits, updatedAt: new Date() },
+      })
+      .returning();
+    return plan;
+  }
+
+  async getTenantSubscription(tenantId: string): Promise<TenantSubscription | undefined> {
+    const [sub] = await db.select().from(tenantSubscriptions).where(eq(tenantSubscriptions.tenantId, tenantId));
+    return sub;
+  }
+
+  async upsertTenantSubscription(data: InsertTenantSubscription): Promise<TenantSubscription> {
+    const [sub] = await db
+      .insert(tenantSubscriptions)
+      .values(data)
+      .onConflictDoUpdate({
+        target: tenantSubscriptions.tenantId,
+        set: {
+          stripeCustomerId: data.stripeCustomerId,
+          stripeSubscriptionId: data.stripeSubscriptionId,
+          stripePriceId: data.stripePriceId,
+          planCode: data.planCode,
+          status: data.status,
+          currentPeriodEnd: data.currentPeriodEnd,
+          cancelAtPeriodEnd: data.cancelAtPeriodEnd,
+          updatedAt: new Date(),
+        },
+      })
+      .returning();
+    return sub;
+  }
+
+  async updateTenantSubscription(tenantId: string, data: Partial<Omit<TenantSubscription, "id" | "tenantId" | "createdAt">>): Promise<TenantSubscription | undefined> {
+    const [sub] = await db
+      .update(tenantSubscriptions)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(tenantSubscriptions.tenantId, tenantId))
+      .returning();
+    return sub;
+  }
+
+  async getTenantSubscriptionByStripeCustomerId(stripeCustomerId: string): Promise<TenantSubscription | undefined> {
+    const [sub] = await db.select().from(tenantSubscriptions).where(eq(tenantSubscriptions.stripeCustomerId, stripeCustomerId));
+    return sub;
+  }
+
+  async getTenantSubscriptionByStripeSubscriptionId(stripeSubscriptionId: string): Promise<TenantSubscription | undefined> {
+    const [sub] = await db.select().from(tenantSubscriptions).where(eq(tenantSubscriptions.stripeSubscriptionId, stripeSubscriptionId));
+    return sub;
+  }
+
+  async getOrCreateUsageCounter(tenantId: string, monthKey: string): Promise<UsageCounter> {
+    const [existing] = await db
+      .select()
+      .from(usageCountersMonthly)
+      .where(and(eq(usageCountersMonthly.tenantId, tenantId), eq(usageCountersMonthly.monthKey, monthKey)));
+    if (existing) return existing;
+    const [counter] = await db
+      .insert(usageCountersMonthly)
+      .values({ tenantId, monthKey })
+      .onConflictDoNothing()
+      .returning();
+    if (counter) return counter;
+    const [refetch] = await db
+      .select()
+      .from(usageCountersMonthly)
+      .where(and(eq(usageCountersMonthly.tenantId, tenantId), eq(usageCountersMonthly.monthKey, monthKey)));
+    return refetch;
+  }
+
+  async incrementUsageCounter(tenantId: string, monthKey: string, field: "reportsGenerated" | "webhookDeliveries", amount = 1): Promise<void> {
+    await this.getOrCreateUsageCounter(tenantId, monthKey);
+    const col = field === "reportsGenerated" ? usageCountersMonthly.reportsGenerated : usageCountersMonthly.webhookDeliveries;
+    await db
+      .update(usageCountersMonthly)
+      .set({ [field]: sql`${col} + ${amount}`, updatedAt: new Date() })
+      .where(and(eq(usageCountersMonthly.tenantId, tenantId), eq(usageCountersMonthly.monthKey, monthKey)));
+  }
+
+  async incrementEvidenceBytes(tenantId: string, monthKey: string, bytes: number): Promise<void> {
+    await this.getOrCreateUsageCounter(tenantId, monthKey);
+    await db
+      .update(usageCountersMonthly)
+      .set({ evidenceBytesStored: sql`${usageCountersMonthly.evidenceBytesStored} + ${bytes}`, updatedAt: new Date() })
+      .where(and(eq(usageCountersMonthly.tenantId, tenantId), eq(usageCountersMonthly.monthKey, monthKey)));
+  }
+
+  async getWebhookEndpointCountByTenant(tenantId: string): Promise<number> {
+    const result = await db.select({ count: sql<number>`count(*)::int` }).from(webhookEndpoints).where(eq(webhookEndpoints.tenantId, tenantId));
+    return result[0]?.count ?? 0;
+  }
+
+  async getMemberCountByTenant(tenantId: string): Promise<number> {
+    const result = await db.select({ count: sql<number>`count(*)::int` }).from(tenantMembers).where(eq(tenantMembers.tenantId, tenantId));
+    return result[0]?.count ?? 0;
   }
 }
 
