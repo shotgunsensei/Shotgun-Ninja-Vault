@@ -1,0 +1,58 @@
+Implement API-ONLY MODE with API tokens and basic OpenAPI JSON output.
+
+Requirements:
+- Add schema tables in shared/schema.ts:
+  1) apiTokens:
+     - id (uuid pk)
+     - tenantId (fk)
+     - name (text)
+     - tokenHash (text) // store SHA-256 hash, never store plaintext
+     - scopes (text[]) // e.g. ['evidence:read','license:validate','status:read']
+     - enabled (boolean default true)
+     - lastUsedAt (timestamp nullable)
+     - createdAt, updatedAt
+- Update server/storage.ts with methods:
+  - createApiToken(tenantId, name, scopes) -> returns plaintext token ONCE plus record
+  - listApiTokens(tenantId)
+  - revokeApiToken(id)
+  - validateApiToken(plaintext) -> returns tenantId + scopes if valid
+
+- Add server/core/apiAuth.ts middleware:
+  - reads Authorization: Bearer <token>
+  - hashes and validates against apiTokens
+  - attaches req.apiAuth = {tenantId, scopes, tokenId}
+  - updates lastUsedAt
+  - rejects if invalid/disabled
+
+- Add API routes (token-auth) under /api/v1:
+  - GET /api/v1/status/:slug (public status data but token-auth variant can see private if scope allows)
+  - Evidence:
+    - GET /api/v1/evidence (read with filters) requires scope evidence:read
+  - License validate:
+    - POST /api/v1/license/validate requires scope license:validate
+  Keep it minimal but functional.
+
+- Add admin UI for tokens:
+  - Add client page in core settings area or new module page /api-tokens
+  - Only OWNER/ADMIN can create/revoke
+  - Creation shows token plaintext ONCE with copy UI
+- Add module manifest:
+  - id: "api"
+  - nav visible OWNER/ADMIN: "API Tokens" -> /api-tokens
+
+API-only mode behavior:
+- If env var API_ONLY=true:
+  - do NOT serve the client SPA
+  - do NOT register normal browser auth routes
+  - only register /api/v1 token-auth routes and minimal health endpoint
+- If API_ONLY is false/missing, keep existing behavior unchanged.
+
+OpenAPI JSON:
+- Serve GET /api/v1/openapi.json with a minimal spec describing the /api/v1 routes and auth scheme.
+
+Acceptance criteria:
+- Tokens are hashed in DB; plaintext never stored
+- Token routes enforce scopes
+- API_ONLY=true disables UI serving and session auth routes safely
+- openapi.json is reachable
+- List all files changed and manual steps at end.
