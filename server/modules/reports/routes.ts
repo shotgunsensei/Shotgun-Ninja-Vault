@@ -4,6 +4,7 @@ import { requireRole } from "../../authz";
 import { storage } from "../../storage";
 import { emitEvent } from "../../core/events/helpers";
 import { generateEvidencePacket, type EvidencePacketParams } from "./generator";
+import { requireFeature, checkLimit } from "../../core/billing/enforcePlan";
 import fs from "fs";
 import path from "path";
 
@@ -14,6 +15,8 @@ export function registerReportRoutes(app: Express) {
     "/api/reports/evidence-packet",
     isAuthenticated,
     requireRole("OWNER", "ADMIN", "TECH"),
+    requireFeature("reports"),
+    checkLimit("reportsPerMonth"),
     async (req: any, res) => {
       try {
         const { tenantId, userId } = req.tenantCtx;

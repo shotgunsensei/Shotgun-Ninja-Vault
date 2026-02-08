@@ -4,11 +4,12 @@ import { storage } from "../../storage";
 import { and, eq, inArray, desc } from "drizzle-orm";
 import { db } from "../../db";
 import { evidenceItems, clients, sites, assets, tags } from "@shared/schema";
+import { requireFeature } from "../../core/billing/enforcePlan";
 
 export function registerPortalRoutes(app: Express) {
   const isAuthenticated = requireTenant();
 
-  app.get("/api/portal/me", isAuthenticated, async (req: any, res) => {
+  app.get("/api/portal/me", isAuthenticated, requireFeature("portal"), async (req: any, res) => {
     try {
       const { userId, tenantId, role } = req.tenantCtx;
       if (role !== "CLIENT") {
@@ -29,7 +30,7 @@ export function registerPortalRoutes(app: Express) {
     }
   });
 
-  app.get("/api/portal/clients", isAuthenticated, async (req: any, res) => {
+  app.get("/api/portal/clients", isAuthenticated, requireFeature("portal"), async (req: any, res) => {
     try {
       const { userId, tenantId, role } = req.tenantCtx;
       if (role !== "CLIENT") {
@@ -53,7 +54,7 @@ export function registerPortalRoutes(app: Express) {
     }
   });
 
-  app.get("/api/portal/clients/:id", isAuthenticated, async (req: any, res) => {
+  app.get("/api/portal/clients/:id", isAuthenticated, requireFeature("portal"), async (req: any, res) => {
     try {
       const { userId, tenantId, role } = req.tenantCtx;
       if (role !== "CLIENT") {
@@ -92,7 +93,7 @@ export function registerPortalRoutes(app: Express) {
     }
   });
 
-  app.get("/api/portal/evidence", isAuthenticated, async (req: any, res) => {
+  app.get("/api/portal/evidence", isAuthenticated, requireFeature("portal"), async (req: any, res) => {
     try {
       const { userId, tenantId, role } = req.tenantCtx;
       if (role !== "CLIENT") {

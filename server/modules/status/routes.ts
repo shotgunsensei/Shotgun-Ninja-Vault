@@ -4,6 +4,7 @@ import { isAuthenticated } from "../../replit_integrations/auth";
 import { requireRole } from "../../authz";
 import { emitEvent } from "../../core/events/helpers";
 import { z } from "zod";
+import { requireFeature } from "../../core/billing/enforcePlan";
 
 const upsertPageSchema = z.object({
   publicSlug: z.string().min(2).max(64).regex(/^[a-z0-9-]+$/, "Slug must be lowercase alphanumeric with hyphens"),
@@ -43,7 +44,7 @@ const updateIncidentSchema = z.object({
 });
 
 export function registerStatusRoutes(app: Express) {
-  app.get("/api/status/page", isAuthenticated, requireRole("OWNER", "ADMIN"), async (req: any, res) => {
+  app.get("/api/status/page", isAuthenticated, requireRole("OWNER", "ADMIN"), requireFeature("status"), async (req: any, res) => {
     try {
       const page = await storage.getStatusPageByTenant(req.tenantCtx.tenantId);
       res.json(page || null);
@@ -52,7 +53,7 @@ export function registerStatusRoutes(app: Express) {
     }
   });
 
-  app.put("/api/status/page", isAuthenticated, requireRole("OWNER", "ADMIN"), async (req: any, res) => {
+  app.put("/api/status/page", isAuthenticated, requireRole("OWNER", "ADMIN"), requireFeature("status"), async (req: any, res) => {
     try {
       const { tenantId, userId } = req.tenantCtx;
       const parsed = upsertPageSchema.safeParse(req.body);
@@ -71,7 +72,7 @@ export function registerStatusRoutes(app: Express) {
     }
   });
 
-  app.get("/api/status/components", isAuthenticated, requireRole("OWNER", "ADMIN"), async (req: any, res) => {
+  app.get("/api/status/components", isAuthenticated, requireRole("OWNER", "ADMIN"), requireFeature("status"), async (req: any, res) => {
     try {
       const components = await storage.getStatusComponentsByTenant(req.tenantCtx.tenantId);
       res.json(components);
@@ -80,7 +81,7 @@ export function registerStatusRoutes(app: Express) {
     }
   });
 
-  app.post("/api/status/components", isAuthenticated, requireRole("OWNER", "ADMIN"), async (req: any, res) => {
+  app.post("/api/status/components", isAuthenticated, requireRole("OWNER", "ADMIN"), requireFeature("status"), async (req: any, res) => {
     try {
       const { tenantId, userId } = req.tenantCtx;
       const parsed = createComponentSchema.safeParse(req.body);
@@ -96,7 +97,7 @@ export function registerStatusRoutes(app: Express) {
     }
   });
 
-  app.patch("/api/status/components/:id", isAuthenticated, requireRole("OWNER", "ADMIN"), async (req: any, res) => {
+  app.patch("/api/status/components/:id", isAuthenticated, requireRole("OWNER", "ADMIN"), requireFeature("status"), async (req: any, res) => {
     try {
       const { tenantId, userId } = req.tenantCtx;
       const parsed = updateComponentSchema.safeParse(req.body);
@@ -114,7 +115,7 @@ export function registerStatusRoutes(app: Express) {
     }
   });
 
-  app.delete("/api/status/components/:id", isAuthenticated, requireRole("OWNER", "ADMIN"), async (req: any, res) => {
+  app.delete("/api/status/components/:id", isAuthenticated, requireRole("OWNER", "ADMIN"), requireFeature("status"), async (req: any, res) => {
     try {
       const { tenantId, userId } = req.tenantCtx;
       await storage.deleteStatusComponent(tenantId, req.params.id);
@@ -125,7 +126,7 @@ export function registerStatusRoutes(app: Express) {
     }
   });
 
-  app.get("/api/status/incidents", isAuthenticated, requireRole("OWNER", "ADMIN"), async (req: any, res) => {
+  app.get("/api/status/incidents", isAuthenticated, requireRole("OWNER", "ADMIN"), requireFeature("status"), async (req: any, res) => {
     try {
       const incidents = await storage.getStatusIncidentsByTenant(req.tenantCtx.tenantId);
       res.json(incidents);
@@ -134,7 +135,7 @@ export function registerStatusRoutes(app: Express) {
     }
   });
 
-  app.post("/api/status/incidents", isAuthenticated, requireRole("OWNER", "ADMIN"), async (req: any, res) => {
+  app.post("/api/status/incidents", isAuthenticated, requireRole("OWNER", "ADMIN"), requireFeature("status"), async (req: any, res) => {
     try {
       const { tenantId, userId } = req.tenantCtx;
       const parsed = createIncidentSchema.safeParse(req.body);
@@ -157,7 +158,7 @@ export function registerStatusRoutes(app: Express) {
     }
   });
 
-  app.patch("/api/status/incidents/:id", isAuthenticated, requireRole("OWNER", "ADMIN"), async (req: any, res) => {
+  app.patch("/api/status/incidents/:id", isAuthenticated, requireRole("OWNER", "ADMIN"), requireFeature("status"), async (req: any, res) => {
     try {
       const { tenantId, userId } = req.tenantCtx;
       const parsed = updateIncidentSchema.safeParse(req.body);
@@ -183,7 +184,7 @@ export function registerStatusRoutes(app: Express) {
     }
   });
 
-  app.delete("/api/status/incidents/:id", isAuthenticated, requireRole("OWNER", "ADMIN"), async (req: any, res) => {
+  app.delete("/api/status/incidents/:id", isAuthenticated, requireRole("OWNER", "ADMIN"), requireFeature("status"), async (req: any, res) => {
     try {
       const { tenantId, userId } = req.tenantCtx;
       await storage.deleteStatusIncident(tenantId, req.params.id);
