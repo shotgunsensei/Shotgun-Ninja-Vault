@@ -13,15 +13,68 @@ declare module "http" {
   }
 }
 
+app.use((_req, res, next) => {
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("Referrer-Policy", "no-referrer");
+  res.setHeader("X-Frame-Options", "DENY");
+  if (process.env.NODE_ENV === "production") {
+    res.setHeader(
+      "Content-Security-Policy",
+      "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; frame-ancestors 'none';"
+    );
+  }
+  next();
+});
+
+const rateBuckets = new Map<string, { count: number; resetAt: number }>();
+
+setInterval(() => {
+  const now = Date.now();
+  rateBuckets.forEach((entry, key) => {
+    if (now > entry.resetAt) rateBuckets.delete(key);
+  });
+}, 60_000);
+
+function createRateLimiter(scope: string, windowMs: number, maxRequests: number) {
+  return (req: Request, res: Response, next: NextFunction) => {
+    const ip = req.ip ?? "unknown";
+    const bucket = `${scope}:${ip}`;
+    const now = Date.now();
+    const entry = rateBuckets.get(bucket);
+
+    if (!entry || now > entry.resetAt) {
+      rateBuckets.set(bucket, { count: 1, resetAt: now + windowMs });
+      return next();
+    }
+
+    entry.count++;
+    if (entry.count > maxRequests) {
+      res.setHeader("Retry-After", String(Math.ceil((entry.resetAt - now) / 1000)));
+      return res.status(429).json({ error: "Too many requests" });
+    }
+
+    return next();
+  };
+}
+
+app.use("/api/v1", createRateLimiter("api-v1", 60_000, 60));
+
+app.use("/api/public", createRateLimiter("api-public", 60_000, 60));
+
+app.use("/api/login", createRateLimiter("auth", 60_000, 10));
+app.use("/api/callback", createRateLimiter("auth", 60_000, 10));
+app.use("/api/api-tokens", createRateLimiter("api-tokens", 60_000, 20));
+
 app.use(
   express.json({
+    limit: "1mb",
     verify: (req, _res, buf) => {
       req.rawBody = buf;
     },
   }),
 );
 
-app.use(express.urlencoded({ extended: false }));
+app.use(express.urlencoded({ extended: false, limit: "1mb" }));
 
 export function log(message: string, source = "express") {
   const formattedTime = new Date().toLocaleTimeString("en-US", {
