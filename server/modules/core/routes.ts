@@ -10,9 +10,10 @@ import {
   insertTenantSchema,
 } from "@shared/schema";
 import { emitEvent } from "../../core/events/helpers";
+import { requireNotPaused } from "../../core/middleware/requireNotPaused";
 
 export function registerCoreRoutes(app: Express) {
-  app.post("/api/tenants", isAuthenticated, requireUser(), async (req: any, res) => {
+  app.post("/api/tenants", isAuthenticated, requireUser(), requireNotPaused(), async (req: any, res) => {
     try {
       const parsed = insertTenantSchema.pick({ name: true, slug: true }).safeParse(req.body);
       if (!parsed.success) {
@@ -93,6 +94,7 @@ export function registerCoreRoutes(app: Express) {
     "/api/clients",
     isAuthenticated,
     requireRole("OWNER", "ADMIN", "TECH"),
+    requireNotPaused(),
     async (req: any, res) => {
       try {
         const { tenantId, userId } = req.tenantCtx;
@@ -135,6 +137,7 @@ export function registerCoreRoutes(app: Express) {
     "/api/sites",
     isAuthenticated,
     requireRole("OWNER", "ADMIN", "TECH"),
+    requireNotPaused(),
     async (req: any, res) => {
       try {
         const { tenantId, userId } = req.tenantCtx;
@@ -181,6 +184,7 @@ export function registerCoreRoutes(app: Express) {
     "/api/assets",
     isAuthenticated,
     requireRole("OWNER", "ADMIN", "TECH"),
+    requireNotPaused(),
     async (req: any, res) => {
       try {
         const { tenantId, userId } = req.tenantCtx;
@@ -217,6 +221,7 @@ export function registerCoreRoutes(app: Express) {
     "/api/members/invite",
     isAuthenticated,
     requireRole("OWNER", "ADMIN"),
+    requireNotPaused(),
     async (req: any, res) => {
       try {
         const { tenantId, userId } = req.tenantCtx;
@@ -245,6 +250,7 @@ export function registerCoreRoutes(app: Express) {
     "/api/members/:id/role",
     isAuthenticated,
     requireRole("OWNER", "ADMIN"),
+    requireNotPaused(),
     async (req: any, res) => {
       try {
         const { tenantId, userId } = req.tenantCtx;
@@ -303,7 +309,7 @@ export function registerCoreRoutes(app: Express) {
     }
   });
 
-  app.post("/api/client-access", isAuthenticated, requireRole("OWNER", "ADMIN"), async (req: any, res) => {
+  app.post("/api/client-access", isAuthenticated, requireRole("OWNER", "ADMIN"), requireNotPaused(), async (req: any, res) => {
     try {
       const { tenantId, userId } = req.tenantCtx;
       const schema = z.object({
@@ -339,7 +345,7 @@ export function registerCoreRoutes(app: Express) {
     }
   });
 
-  app.patch("/api/client-access/:id", isAuthenticated, requireRole("OWNER", "ADMIN"), async (req: any, res) => {
+  app.patch("/api/client-access/:id", isAuthenticated, requireRole("OWNER", "ADMIN"), requireNotPaused(), async (req: any, res) => {
     try {
       const { tenantId, userId } = req.tenantCtx;
       const schema = z.object({ canUpload: z.boolean() });
@@ -358,7 +364,7 @@ export function registerCoreRoutes(app: Express) {
     }
   });
 
-  app.delete("/api/client-access/:id", isAuthenticated, requireRole("OWNER", "ADMIN"), async (req: any, res) => {
+  app.delete("/api/client-access/:id", isAuthenticated, requireRole("OWNER", "ADMIN"), requireNotPaused(), async (req: any, res) => {
     try {
       const { tenantId, userId } = req.tenantCtx;
 
@@ -367,6 +373,22 @@ export function registerCoreRoutes(app: Express) {
       await emitEvent("revoke_client_access", tenantId, userId, "client_access", req.params.id);
 
       res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/tenant/pause-status", isAuthenticated, requireRole("OWNER", "ADMIN", "TECH", "CLIENT"), async (req: any, res) => {
+    try {
+      const sub = await storage.getTenantSubscription(req.tenantCtx.tenantId);
+      if (!sub?.pausedAt) {
+        return res.json({ paused: false });
+      }
+      const pausedDate = new Date(sub.pausedAt);
+      const now = new Date();
+      const daysPaused = Math.floor((now.getTime() - pausedDate.getTime()) / (1000 * 60 * 60 * 24));
+      const daysRemaining = Math.max(0, 90 - daysPaused);
+      res.json({ paused: true, pausedAt: sub.pausedAt, daysRemaining, status: sub.status });
     } catch (error: any) {
       res.status(500).json({ message: error.message });
     }

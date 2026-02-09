@@ -221,6 +221,14 @@ export interface IStorage {
   incrementEvidenceBytes(tenantId: string, monthKey: string, bytes: number): Promise<void>;
   getWebhookEndpointCountByTenant(tenantId: string): Promise<number>;
   getMemberCountByTenant(tenantId: string): Promise<number>;
+
+  getUserById(userId: string): Promise<any>;
+  setSystemAdmin(userId: string, isAdmin: boolean): Promise<void>;
+  isUserSystemAdmin(userId: string): Promise<boolean>;
+  getAllTenants(): Promise<Array<Tenant & { memberCount: number; subscription?: TenantSubscription | null }>>;
+  getAllUsers(): Promise<any[]>;
+  deleteTenant(tenantId: string): Promise<void>;
+  getPausedTenantsExpiredGrace(graceDays: number): Promise<TenantSubscription[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1201,6 +1209,70 @@ export class DatabaseStorage implements IStorage {
   async getMemberCountByTenant(tenantId: string): Promise<number> {
     const result = await db.select({ count: sql<number>`count(*)::int` }).from(tenantMembers).where(eq(tenantMembers.tenantId, tenantId));
     return result[0]?.count ?? 0;
+  }
+
+  async getUserById(userId: string): Promise<any> {
+    const [user] = await db.select().from(users).where(eq(users.id, userId));
+    return user;
+  }
+
+  async setSystemAdmin(userId: string, isAdmin: boolean): Promise<void> {
+    await db.update(users).set({ isSystemAdmin: isAdmin, updatedAt: new Date() }).where(eq(users.id, userId));
+  }
+
+  async isUserSystemAdmin(userId: string): Promise<boolean> {
+    const [user] = await db.select({ isSystemAdmin: users.isSystemAdmin }).from(users).where(eq(users.id, userId));
+    return user?.isSystemAdmin === true;
+  }
+
+  async getAllTenants(): Promise<Array<Tenant & { memberCount: number; subscription?: TenantSubscription | null }>> {
+    const allTenants = await db.select().from(tenants).orderBy(desc(tenants.createdAt));
+    const results = [];
+    for (const t of allTenants) {
+      const memberCount = await this.getMemberCountByTenant(t.id);
+      const [sub] = await db.select().from(tenantSubscriptions).where(eq(tenantSubscriptions.tenantId, t.id));
+      results.push({ ...t, memberCount, subscription: sub || null });
+    }
+    return results;
+  }
+
+  async getAllUsers(): Promise<any[]> {
+    const allUsers = await db
+      .select({
+        id: users.id,
+        email: users.email,
+        firstName: users.firstName,
+        lastName: users.lastName,
+        profileImageUrl: users.profileImageUrl,
+        isSystemAdmin: users.isSystemAdmin,
+        createdAt: users.createdAt,
+      })
+      .from(users)
+      .orderBy(desc(users.createdAt));
+    return allUsers;
+  }
+
+  async deleteTenant(tenantId: string): Promise<void> {
+    await db.delete(tenants).where(eq(tenants.id, tenantId));
+  }
+
+  async getPausedTenantsExpiredGrace(graceDays: number): Promise<TenantSubscription[]> {
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - graceDays);
+    const results = await db
+      .select()
+      .from(tenantSubscriptions)
+      .where(
+        and(
+          lte(tenantSubscriptions.pausedAt, cutoff),
+          or(
+            eq(tenantSubscriptions.status, "past_due"),
+            eq(tenantSubscriptions.status, "canceled"),
+            eq(tenantSubscriptions.status, "unpaid")
+          )
+        )
+      );
+    return results;
   }
 }
 

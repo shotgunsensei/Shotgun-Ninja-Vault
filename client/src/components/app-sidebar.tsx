@@ -15,6 +15,7 @@ import {
   ClipboardList,
   Home,
   CreditCard,
+  ShieldCheck,
 } from "lucide-react";
 import logoImage from "@assets/ShotgunNinjaVaulticon_1770412982737.png";
 import { useLocation, Link } from "wouter";
@@ -44,48 +45,58 @@ import type { MemberRole } from "@shared/schema";
 
 interface AppSidebarProps {
   role: MemberRole;
+  isSystemAdmin?: boolean;
+  isPaused?: boolean;
 }
 
-export function AppSidebar({ role }: AppSidebarProps) {
+export function AppSidebar({ role, isSystemAdmin = false, isPaused = false }: AppSidebarProps) {
   const [location] = useLocation();
   const { user } = useAuth();
 
   const isClient = role === "CLIENT";
   const isAdminOrOwner = role === "OWNER" || role === "ADMIN";
 
-  const portalNavItems = isClient
+  const portalNavItems = isClient && !isPaused
     ? [
         { title: "Portal", url: "/portal", icon: Home, show: true },
         { title: "My Evidence", url: "/portal/evidence", icon: FileText, show: true },
       ].filter((item) => item.show)
     : [];
 
-  const mainNavItems = isClient
-    ? []
-    : [
-        { title: "Dashboard", url: "/", icon: LayoutDashboard, show: true },
-        { title: "Clients", url: "/clients", icon: Users, show: true },
-        { title: "Sites", url: "/sites", icon: MapPin, show: true },
-        { title: "Assets", url: "/assets", icon: Server, show: true },
+  const mainNavItems = isPaused
+    ? [
         { title: "Evidence", url: "/evidence", icon: FileText, show: true },
-        { title: "Reports", url: "/reports", icon: ClipboardList, show: true },
-      ].filter((item) => item.show);
+      ].filter((item) => item.show)
+    : isClient
+      ? []
+      : [
+          { title: "Dashboard", url: "/", icon: LayoutDashboard, show: true },
+          { title: "Clients", url: "/clients", icon: Users, show: true },
+          { title: "Sites", url: "/sites", icon: MapPin, show: true },
+          { title: "Assets", url: "/assets", icon: Server, show: true },
+          { title: "Evidence", url: "/evidence", icon: FileText, show: true },
+          { title: "Reports", url: "/reports", icon: ClipboardList, show: true },
+        ].filter((item) => item.show);
 
-  const licenseNavItems = [
+  const licenseNavItems = isPaused ? [] : [
     { title: "Licenses", url: "/licenses", icon: Key, show: isAdminOrOwner },
     { title: "Developer", url: "/licenses/developer", icon: Code, show: isAdminOrOwner },
   ].filter((item) => item.show);
 
-  const adminNavItems = [
-    { title: "Status", url: "/status-admin", icon: Activity, show: isAdminOrOwner },
-    { title: "Webhooks", url: "/webhooks", icon: Webhook, show: isAdminOrOwner },
-    { title: "Team", url: "/team", icon: Building2, show: isAdminOrOwner },
-    { title: "Client Access", url: "/client-access", icon: KeyRound, show: isAdminOrOwner },
-    { title: "Audit Log", url: "/audit", icon: Shield, show: isAdminOrOwner },
-    { title: "API Tokens", url: "/api-tokens", icon: Key, show: isAdminOrOwner },
-    { title: "Billing", url: "/billing", icon: CreditCard, show: isAdminOrOwner },
-    { title: "Settings", url: "/settings", icon: Settings, show: !isClient },
-  ].filter((item) => item.show);
+  const adminNavItems = isPaused
+    ? [
+        { title: "Billing", url: "/billing", icon: CreditCard, show: isAdminOrOwner },
+      ].filter((item) => item.show)
+    : [
+        { title: "Status", url: "/status-admin", icon: Activity, show: isAdminOrOwner },
+        { title: "Webhooks", url: "/webhooks", icon: Webhook, show: isAdminOrOwner },
+        { title: "Team", url: "/team", icon: Building2, show: isAdminOrOwner },
+        { title: "Client Access", url: "/client-access", icon: KeyRound, show: isAdminOrOwner },
+        { title: "Audit Log", url: "/audit", icon: Shield, show: isAdminOrOwner },
+        { title: "API Tokens", url: "/api-tokens", icon: Key, show: isAdminOrOwner },
+        { title: "Billing", url: "/billing", icon: CreditCard, show: isAdminOrOwner },
+        { title: "Settings", url: "/settings", icon: Settings, show: !isClient },
+      ].filter((item) => item.show);
 
   const initials = user
     ? `${(user.firstName || "")[0] || ""}${(user.lastName || "")[0] || ""}`
@@ -209,6 +220,26 @@ export function AppSidebar({ role }: AppSidebarProps) {
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
+        {isSystemAdmin && (
+          <SidebarGroup>
+            <SidebarGroupLabel>System</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={location.startsWith("/system-admin")}
+                  >
+                    <Link href="/system-admin" data-testid="nav-system-admin">
+                      <ShieldCheck className="w-4 h-4" />
+                      <span>Admin Panel</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>

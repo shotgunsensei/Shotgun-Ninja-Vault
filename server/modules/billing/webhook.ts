@@ -125,6 +125,11 @@ async function handleSubscriptionUpdate(subscription: Stripe.Subscription): Prom
   const priceId = subscription.items.data[0]?.price?.id;
   const planCode = priceId ? getPlanCodeFromPriceId(priceId) : sub.planCode;
 
+  const pauseStatuses = ["past_due", "canceled", "unpaid"];
+  const activeStatuses = ["active", "trialing"];
+  const shouldPause = pauseStatuses.includes(subscription.status) && !sub.pausedAt;
+  const shouldUnpause = activeStatuses.includes(subscription.status) && sub.pausedAt;
+
   await storage.updateTenantSubscription(sub.tenantId, {
     stripeSubscriptionId: subscription.id,
     stripePriceId: priceId || sub.stripePriceId,
@@ -132,7 +137,16 @@ async function handleSubscriptionUpdate(subscription: Stripe.Subscription): Prom
     status: subscription.status,
     currentPeriodEnd: (subscription as any).current_period_end ? new Date((subscription as any).current_period_end * 1000) : null,
     cancelAtPeriodEnd: subscription.cancel_at_period_end,
+    ...(shouldPause ? { pausedAt: new Date() } : {}),
+    ...(shouldUnpause ? { pausedAt: null } : {}),
   });
+
+  if (shouldPause) {
+    console.log(`[stripe-webhook] Tenant ${sub.tenantId} paused due to status: ${subscription.status}`);
+  }
+  if (shouldUnpause) {
+    console.log(`[stripe-webhook] Tenant ${sub.tenantId} unpaused, status restored to: ${subscription.status}`);
+  }
 
   await emitEvent("billing.subscription_updated", sub.tenantId, undefined, "tenant_subscription", sub.tenantId, {
     planCode,
@@ -153,7 +167,10 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription): Pro
   await storage.updateTenantSubscription(sub.tenantId, {
     status: "canceled",
     cancelAtPeriodEnd: false,
+    ...(sub.pausedAt ? {} : { pausedAt: new Date() }),
   });
+
+  console.log(`[stripe-webhook] Tenant ${sub.tenantId} subscription deleted, account paused`);
 
   await emitEvent("billing.subscription_updated", sub.tenantId, undefined, "tenant_subscription", sub.tenantId, {
     planCode: sub.planCode,
@@ -168,7 +185,12 @@ async function handlePaymentFailed(invoice: Stripe.Invoice): Promise<void> {
   const sub = await storage.getTenantSubscriptionByStripeCustomerId(customerId);
   if (!sub) return;
 
-  await storage.updateTenantSubscription(sub.tenantId, { status: "past_due" });
+  await storage.updateTenantSubscription(sub.tenantId, {
+    status: "past_due",
+    ...(sub.pausedAt ? {} : { pausedAt: new Date() }),
+  });
+
+  console.log(`[stripe-webhook] Tenant ${sub.tenantId} payment failed, account paused`);
 
   await emitEvent("billing.payment_failed", sub.tenantId, undefined, "tenant_subscription", sub.tenantId, {
     invoiceId: invoice.id,
@@ -182,7 +204,11 @@ async function handleInvoicePaid(invoice: Stripe.Invoice): Promise<void> {
   const sub = await storage.getTenantSubscriptionByStripeCustomerId(customerId);
   if (!sub) return;
 
-  await storage.updateTenantSubscription(sub.tenantId, { status: "active" });
+  await storage.updateTenantSubscription(sub.tenantId, { status: "active", pausedAt: null });
+
+  if (sub.pausedAt) {
+    console.log(`[stripe-webhook] Tenant ${sub.tenantId} payment received, account unpaused`);
+  }
 
   await emitEvent("billing.subscription_updated", sub.tenantId, undefined, "tenant_subscription", sub.tenantId, {
     planCode: sub.planCode,

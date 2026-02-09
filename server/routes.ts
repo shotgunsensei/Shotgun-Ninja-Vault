@@ -10,8 +10,10 @@ import { registerReportRoutes } from "./modules/reports/routes";
 import { registerPortalRoutes } from "./modules/portal/routes";
 import { registerApiV1Routes } from "./modules/api/routes";
 import { registerApiTokenAdminRoutes } from "./modules/api/adminRoutes";
+import { registerAdminRoutes } from "./modules/admin/routes";
 import { registerAuditSubscriber } from "./core/events/subscribers";
 import { startWebhookWorker } from "./modules/webhooks/worker";
+import { startGraceCleanupJob } from "./core/billing/graceCleanup";
 import { registerBillingRoutes } from "./modules/billing/routes";
 import { registerStripeWebhook } from "./modules/billing/webhook";
 import { seedSubscriptionPlans, initStripeClient, setStripePriceMap } from "./modules/billing/stripe";
@@ -142,6 +144,9 @@ export async function registerRoutes(
     registerPortalRoutes(app);
     registerApiTokenAdminRoutes(app);
     registerBillingRoutes(app);
+    registerAdminRoutes(app);
+
+    startGraceCleanupJob();
   }
 
   return httpServer;

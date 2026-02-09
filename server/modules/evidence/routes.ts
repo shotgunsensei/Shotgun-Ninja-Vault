@@ -8,6 +8,7 @@ import path from "path";
 import crypto from "crypto";
 import archiver from "archiver";
 import { emitEvent } from "../../core/events/helpers";
+import { requireNotPaused } from "../../core/middleware/requireNotPaused";
 
 const ALLOWED_EXTENSIONS = ["png", "jpg", "jpeg", "pdf", "txt", "log", "csv", "json"];
 
@@ -116,6 +117,7 @@ export function registerEvidenceRoutes(app: Express) {
     "/api/evidence/upload",
     isAuthenticated,
     requireTenant(),
+    requireNotPaused(),
     upload.single("file"),
     async (req: any, res) => {
       try {
@@ -210,6 +212,7 @@ export function registerEvidenceRoutes(app: Express) {
     "/api/evidence/:id",
     isAuthenticated,
     requireRole("OWNER", "ADMIN", "TECH"),
+    requireNotPaused(),
     async (req: any, res) => {
       try {
         const { tenantId, userId, role } = req.tenantCtx;
@@ -245,6 +248,7 @@ export function registerEvidenceRoutes(app: Express) {
     "/api/evidence/export-packet",
     isAuthenticated,
     requireRole("OWNER", "ADMIN", "TECH"),
+    requireNotPaused(),
     async (req: any, res) => {
       try {
         const { tenantId, userId } = req.tenantCtx;

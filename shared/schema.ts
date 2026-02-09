@@ -775,6 +775,7 @@ export const tenantSubscriptions = pgTable("tenant_subscriptions", {
   status: text("status").notNull().default("trialing"),
   currentPeriodEnd: timestamp("current_period_end"),
   cancelAtPeriodEnd: boolean("cancel_at_period_end").notNull().default(false),
+  pausedAt: timestamp("paused_at"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });

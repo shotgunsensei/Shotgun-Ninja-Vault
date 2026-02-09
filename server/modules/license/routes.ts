@@ -5,6 +5,7 @@ import { requireRole } from "../../authz";
 import { z } from "zod";
 import crypto from "crypto";
 import { emitEvent } from "../../core/events/helpers";
+import { requireNotPaused } from "../../core/middleware/requireNotPaused";
 
 function generateLicenseKey(): string {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -87,6 +88,7 @@ export function registerLicenseRoutes(app: Express) {
     "/api/license/products",
     isAuthenticated,
     requireRole("OWNER", "ADMIN"),
+    requireNotPaused(),
     async (req: any, res) => {
       try {
         const { tenantId, userId } = req.tenantCtx;
@@ -124,6 +126,7 @@ export function registerLicenseRoutes(app: Express) {
     "/api/license/products/:id",
     isAuthenticated,
     requireRole("OWNER", "ADMIN"),
+    requireNotPaused(),
     async (req: any, res) => {
       try {
         const { tenantId, userId } = req.tenantCtx;
@@ -182,6 +185,7 @@ export function registerLicenseRoutes(app: Express) {
     "/api/license/products/:productId/keys",
     isAuthenticated,
     requireRole("OWNER", "ADMIN"),
+    requireNotPaused(),
     async (req: any, res) => {
       try {
         const { tenantId, userId } = req.tenantCtx;
@@ -227,6 +231,7 @@ export function registerLicenseRoutes(app: Express) {
     "/api/license/keys/:id/revoke",
     isAuthenticated,
     requireRole("OWNER", "ADMIN"),
+    requireNotPaused(),
     async (req: any, res) => {
       try {
         const { tenantId, userId } = req.tenantCtx;

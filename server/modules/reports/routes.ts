@@ -5,6 +5,7 @@ import { storage } from "../../storage";
 import { emitEvent } from "../../core/events/helpers";
 import { generateEvidencePacket, type EvidencePacketParams } from "./generator";
 import { requireFeature, checkLimit } from "../../core/billing/enforcePlan";
+import { requireNotPaused } from "../../core/middleware/requireNotPaused";
 import fs from "fs";
 import path from "path";
 
@@ -17,6 +18,7 @@ export function registerReportRoutes(app: Express) {
     requireRole("OWNER", "ADMIN", "TECH"),
     requireFeature("reports"),
     checkLimit("reportsPerMonth"),
+    requireNotPaused(),
     async (req: any, res) => {
       try {
         const { tenantId, userId } = req.tenantCtx;

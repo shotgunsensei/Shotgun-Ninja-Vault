@@ -7,6 +7,7 @@ import { emitEvent } from "../../core/events/helpers";
 import { z } from "zod";
 import { validateWebhookUrl } from "./urlValidation";
 import { requireFeature, checkLimit } from "../../core/billing/enforcePlan";
+import { requireNotPaused } from "../../core/middleware/requireNotPaused";
 
 const createWebhookSchema = z.object({
   url: z.string().url(),
@@ -32,7 +33,7 @@ export function registerWebhookRoutes(app: Express) {
     }
   });
 
-  app.post("/api/webhooks", isAuthenticated, requireRole("OWNER", "ADMIN"), requireFeature("webhooks"), checkLimit("webhooksMax"), async (req: any, res) => {
+  app.post("/api/webhooks", isAuthenticated, requireRole("OWNER", "ADMIN"), requireFeature("webhooks"), checkLimit("webhooksMax"), requireNotPaused(), async (req: any, res) => {
     try {
       const { tenantId, userId } = req.tenantCtx;
       const parsed = createWebhookSchema.safeParse(req.body);
@@ -64,7 +65,7 @@ export function registerWebhookRoutes(app: Express) {
     }
   });
 
-  app.patch("/api/webhooks/:id", isAuthenticated, requireRole("OWNER", "ADMIN"), requireFeature("webhooks"), async (req: any, res) => {
+  app.patch("/api/webhooks/:id", isAuthenticated, requireRole("OWNER", "ADMIN"), requireFeature("webhooks"), requireNotPaused(), async (req: any, res) => {
     try {
       const { tenantId, userId } = req.tenantCtx;
       const parsed = updateWebhookSchema.safeParse(req.body);
@@ -91,7 +92,7 @@ export function registerWebhookRoutes(app: Express) {
     }
   });
 
-  app.delete("/api/webhooks/:id", isAuthenticated, requireRole("OWNER", "ADMIN"), requireFeature("webhooks"), async (req: any, res) => {
+  app.delete("/api/webhooks/:id", isAuthenticated, requireRole("OWNER", "ADMIN"), requireFeature("webhooks"), requireNotPaused(), async (req: any, res) => {
     try {
       const { tenantId, userId } = req.tenantCtx;
       await storage.deleteWebhookEndpoint(tenantId, req.params.id);

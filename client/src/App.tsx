@@ -8,6 +8,7 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { useAuth } from "@/hooks/use-auth";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
+import { PausedBanner } from "@/components/paused-banner";
 import { Skeleton } from "@/components/ui/skeleton";
 
 import {
@@ -41,6 +42,7 @@ import { ReportsPage } from "@/modules/reports";
 import { PortalHomePage, PortalClientDetailPage, PortalEvidencePage } from "@/modules/portal";
 import { ApiTokensPage } from "@/modules/api";
 import { BillingPage, BillingSuccessPage, BillingCancelPage } from "@/modules/billing";
+import { AdminPanelPage } from "@/modules/admin";
 
 import NotFound from "@/pages/not-found";
 
@@ -56,6 +58,18 @@ function AuthenticatedApp() {
       return res.json();
     },
   });
+
+  const { data: adminCheck } = useQuery<{ isSystemAdmin: boolean }>({
+    queryKey: ["/api/auth/admin-check"],
+  });
+
+  const { data: pauseStatus } = useQuery<{ paused: boolean; daysRemaining?: number }>({
+    queryKey: ["/api/tenant/pause-status"],
+    refetchInterval: 60000,
+  });
+
+  const isSystemAdmin = adminCheck?.isSystemAdmin === true;
+  const isPaused = pauseStatus?.paused === true;
 
   if (tenantLoading) {
     return (
@@ -85,44 +99,59 @@ function AuthenticatedApp() {
   return (
     <SidebarProvider style={style as React.CSSProperties}>
       <div className="flex h-screen w-full">
-        <AppSidebar role={role} />
+        <AppSidebar role={role} isSystemAdmin={isSystemAdmin} isPaused={isPaused} />
         <div className="flex flex-col flex-1 min-w-0">
           <header className="flex items-center justify-between gap-4 p-2 border-b sticky top-0 z-50 bg-background/80 backdrop-blur-md">
             <SidebarTrigger data-testid="button-sidebar-toggle" />
             <ThemeToggle />
           </header>
+          <PausedBanner />
           <main className="flex-1 overflow-auto">
-            <Switch>
-              {isClient ? (
-                <Route path="/">{() => <Redirect to="/portal" />}</Route>
-              ) : (
-                <Route path="/" component={DashboardPage} />
-              )}
-              {isClient && <Route path="/portal" component={PortalHomePage} />}
-              {isClient && <Route path="/portal/clients/:id" component={PortalClientDetailPage} />}
-              {isClient && <Route path="/portal/evidence" component={PortalEvidencePage} />}
-              {!isClient && <Route path="/clients" component={ClientsPage} />}
-              {!isClient && <Route path="/clients/:id" component={ClientDetailPage} />}
-              {!isClient && <Route path="/sites" component={SitesPage} />}
-              {!isClient && <Route path="/assets" component={AssetsPage} />}
-              {!isClient && <Route path="/evidence" component={EvidencePage} />}
-              {!isClient && <Route path="/evidence/upload" component={EvidenceUploadPage} />}
-              {!isClient && <Route path="/evidence/:id" component={EvidenceDetailPage} />}
-              {isAdminOrOwner && <Route path="/team" component={TeamPage} />}
-              {isAdminOrOwner && <Route path="/audit" component={AuditPage} />}
-              {isAdminOrOwner && <Route path="/client-access" component={ClientAccessPage} />}
-              {isAdminOrOwner && <Route path="/licenses" component={LicensesPage} />}
-              {isAdminOrOwner && <Route path="/licenses/developer" component={DeveloperPage} />}
-              {isAdminOrOwner && <Route path="/webhooks" component={WebhooksPage} />}
-              {isAdminOrOwner && <Route path="/status-admin" component={StatusAdminPage} />}
-              {isAdminOrOwner && <Route path="/api-tokens" component={ApiTokensPage} />}
-              {isAdminOrOwner && <Route path="/billing" component={BillingPage} />}
-              {isAdminOrOwner && <Route path="/billing/success" component={BillingSuccessPage} />}
-              {isAdminOrOwner && <Route path="/billing/cancel" component={BillingCancelPage} />}
-              {!isClient && <Route path="/reports" component={ReportsPage} />}
-              {!isClient && <Route path="/settings" component={SettingsPage} />}
-              <Route component={NotFound} />
-            </Switch>
+            {isPaused ? (
+              <Switch>
+                <Route path="/">{() => <Redirect to="/evidence" />}</Route>
+                <Route path="/evidence" component={EvidencePage} />
+                <Route path="/evidence/:id" component={EvidenceDetailPage} />
+                {isAdminOrOwner && <Route path="/billing" component={BillingPage} />}
+                {isAdminOrOwner && <Route path="/billing/success" component={BillingSuccessPage} />}
+                {isAdminOrOwner && <Route path="/billing/cancel" component={BillingCancelPage} />}
+                {isSystemAdmin && <Route path="/system-admin" component={AdminPanelPage} />}
+                <Route>{() => <Redirect to="/evidence" />}</Route>
+              </Switch>
+            ) : (
+              <Switch>
+                {isClient ? (
+                  <Route path="/">{() => <Redirect to="/portal" />}</Route>
+                ) : (
+                  <Route path="/" component={DashboardPage} />
+                )}
+                {isClient && <Route path="/portal" component={PortalHomePage} />}
+                {isClient && <Route path="/portal/clients/:id" component={PortalClientDetailPage} />}
+                {isClient && <Route path="/portal/evidence" component={PortalEvidencePage} />}
+                {!isClient && <Route path="/clients" component={ClientsPage} />}
+                {!isClient && <Route path="/clients/:id" component={ClientDetailPage} />}
+                {!isClient && <Route path="/sites" component={SitesPage} />}
+                {!isClient && <Route path="/assets" component={AssetsPage} />}
+                {!isClient && <Route path="/evidence" component={EvidencePage} />}
+                {!isClient && <Route path="/evidence/upload" component={EvidenceUploadPage} />}
+                {!isClient && <Route path="/evidence/:id" component={EvidenceDetailPage} />}
+                {isAdminOrOwner && <Route path="/team" component={TeamPage} />}
+                {isAdminOrOwner && <Route path="/audit" component={AuditPage} />}
+                {isAdminOrOwner && <Route path="/client-access" component={ClientAccessPage} />}
+                {isAdminOrOwner && <Route path="/licenses" component={LicensesPage} />}
+                {isAdminOrOwner && <Route path="/licenses/developer" component={DeveloperPage} />}
+                {isAdminOrOwner && <Route path="/webhooks" component={WebhooksPage} />}
+                {isAdminOrOwner && <Route path="/status-admin" component={StatusAdminPage} />}
+                {isAdminOrOwner && <Route path="/api-tokens" component={ApiTokensPage} />}
+                {isAdminOrOwner && <Route path="/billing" component={BillingPage} />}
+                {isAdminOrOwner && <Route path="/billing/success" component={BillingSuccessPage} />}
+                {isAdminOrOwner && <Route path="/billing/cancel" component={BillingCancelPage} />}
+                {!isClient && <Route path="/reports" component={ReportsPage} />}
+                {!isClient && <Route path="/settings" component={SettingsPage} />}
+                {isSystemAdmin && <Route path="/system-admin" component={AdminPanelPage} />}
+                <Route component={NotFound} />
+              </Switch>
+            )}
           </main>
         </div>
       </div>

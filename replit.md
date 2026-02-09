@@ -54,6 +54,22 @@ The application follows a modular architecture.
 - **Client Pages**: /billing (plan cards, usage dashboard, Stripe checkout/portal), /billing/success, /billing/cancel
 - **Env Vars**: STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, STRIPE_PRICE_SOLO, STRIPE_PRICE_PRO, STRIPE_PRICE_MSP, APP_URL
 
+### System Admin Module
+- **Schema**: `isSystemAdmin` boolean on users table (default false)
+- **Middleware**: server/core/middleware/requireSystemAdmin.ts - checks isSystemAdmin flag via storage lookup
+- **Admin Routes**: server/modules/admin/routes.ts - GET /api/admin/tenants, GET /api/admin/users, POST /api/admin/tenants/:id/pause, POST /api/admin/tenants/:id/unpause, DELETE /api/admin/tenants/:id
+- **Auth Check**: GET /api/auth/admin-check returns { isSystemAdmin: boolean }
+- **Client Page**: /system-admin with tenant/user tabs, pause/unpause/delete controls
+
+### Payment Grace Period System
+- **Schema**: `pausedAt` timestamp on tenantSubscriptions (nullable)
+- **Middleware**: server/core/middleware/requireNotPaused.ts - blocks POST/PUT/PATCH/DELETE on paused accounts (returns 402 with paused metadata), allows GET and evidence downloads
+- **Webhook Integration**: server/modules/billing/webhook.ts automatically sets pausedAt on past_due/canceled/unpaid status, clears on active/trialing
+- **Grace Cleanup**: server/core/billing/graceCleanup.ts - scheduled job runs every 6 hours, auto-deletes tenants paused 90+ days with race-condition protection (re-checks pausedAt before deletion)
+- **Pause Status API**: GET /api/tenant/pause-status returns { paused, pausedAt, daysRemaining, status }
+- **Frontend Enforcement**: When paused, routes restricted to /evidence, /billing, /system-admin only; sidebar shows only Evidence and Billing; paused banner with countdown and action buttons
+- **Billing Routes Exempt**: Users can access billing page while paused to fix payment issues
+
 ## External Dependencies
 - **PostgreSQL**: Primary database for all application data.
 - **Replit Auth (OIDC)**: Used for user authentication.
