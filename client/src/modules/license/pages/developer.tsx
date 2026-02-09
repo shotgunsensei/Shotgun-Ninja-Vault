@@ -9,7 +9,7 @@ export default function DeveloperPage() {
   -H "Content-Type: application/json" \\
   -d '{
     "productSlug": "my-app-pro",
-    "licenseKey": "SNV-ABCD-1234-EFGH-5678",
+    "licenseKey": "SNV-XXXX-XXXX-XXXX-XXXX",
     "deviceFingerprint": "unique-device-id-here"
   }'`;
 
