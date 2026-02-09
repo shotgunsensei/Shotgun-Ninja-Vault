@@ -4,8 +4,8 @@ import type { PlanLimits } from "@shared/schema";
 
 async function getTenantPlanLimits(tenantId: string): Promise<PlanLimits | null> {
   const sub = await storage.getTenantSubscription(tenantId);
-  if (!sub) return null;
-  const plan = await storage.getSubscriptionPlanByCode(sub.planCode);
+  const planCode = sub?.planCode || "solo";
+  const plan = await storage.getSubscriptionPlanByCode(planCode);
   if (!plan) return null;
   return plan.limits as PlanLimits;
 }
