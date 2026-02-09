@@ -3,13 +3,12 @@ import Stripe from "stripe";
 import { getStripe, getPlanCodeFromPriceId, isStripeConfigured } from "./stripe";
 import { storage } from "../../storage";
 import { emitEvent } from "../../core/events/helpers";
-
-const WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET;
+import { WebhookHandlers } from "../../webhookHandlers";
 
 export function registerStripeWebhook(app: Express) {
   app.post("/api/stripe/webhook", async (req: Request, res: Response) => {
-    if (!isStripeConfigured() || !WEBHOOK_SECRET) {
-      return res.status(503).json({ error: "Stripe webhooks not configured" });
+    if (!isStripeConfigured()) {
+      return res.status(503).json({ error: "Stripe not configured" });
     }
 
     const rawBody = req.rawBody;
@@ -22,19 +21,21 @@ export function registerStripeWebhook(app: Express) {
       return res.status(400).json({ error: "Missing stripe-signature header" });
     }
 
-    let event: Stripe.Event;
+    const sigString = Array.isArray(sig) ? sig[0] : sig;
+
     try {
-      const stripe = getStripe();
-      event = stripe.webhooks.constructEvent(rawBody, sig, WEBHOOK_SECRET);
+      await WebhookHandlers.processWebhook(rawBody, sigString);
     } catch (err: any) {
-      console.error("[stripe-webhook] Signature verification failed:", err.message);
-      return res.status(400).json({ error: `Webhook signature verification failed: ${err.message}` });
+      console.error("[stripe-webhook] stripe-replit-sync processWebhook error:", err.message);
+      return res.status(400).json({ error: `Webhook verification failed: ${err.message}` });
     }
 
     try {
+      const event = JSON.parse(rawBody.toString()) as Stripe.Event;
       await handleStripeEvent(event);
     } catch (err: any) {
-      console.error(`[stripe-webhook] Error handling event ${event.type}:`, err);
+      console.error(`[stripe-webhook] Error handling custom event logic:`, err);
+      return res.status(500).json({ error: "Internal webhook handling error" });
     }
 
     res.json({ received: true });

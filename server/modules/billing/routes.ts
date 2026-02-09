@@ -5,7 +5,17 @@ import { requireRole } from "../../authz";
 import { getStripe, getStripePriceId, isStripeConfigured } from "./stripe";
 import { z } from "zod";
 
-const APP_URL = process.env.APP_URL || "";
+function getAppUrl(): string {
+  if (process.env.APP_URL) return process.env.APP_URL;
+  const domains = process.env.REPLIT_DOMAINS || process.env.REPL_SLUG;
+  if (domains) {
+    const primary = domains.split(",")[0].trim();
+    return `https://${primary}`;
+  }
+  return "http://localhost:5000";
+}
+
+const APP_URL = getAppUrl();
 
 export function registerBillingRoutes(app: Express) {
   app.get("/api/billing/plans", isAuthenticated, requireRole("OWNER", "ADMIN"), async (req: any, res) => {

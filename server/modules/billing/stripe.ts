@@ -1,37 +1,45 @@
 import Stripe from "stripe";
 import { storage } from "../../storage";
 import type { PlanLimits } from "@shared/schema";
+import { getUncachableStripeClient } from "../../stripeClient";
 
-const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY;
+let cachedStripeClient: Stripe | null = null;
+let stripeInitialized = false;
 
-let stripeClient: Stripe | null = null;
+export async function initStripeClient(): Promise<void> {
+  try {
+    cachedStripeClient = await getUncachableStripeClient();
+    stripeInitialized = true;
+    console.log("[billing] Stripe client initialized via Replit connector");
+  } catch (err: any) {
+    console.warn("[billing] Stripe not available:", err.message);
+    stripeInitialized = false;
+  }
+}
 
 export function getStripe(): Stripe {
-  if (!stripeClient) {
-    if (!STRIPE_SECRET_KEY) {
-      throw new Error("STRIPE_SECRET_KEY is not configured");
-    }
-    stripeClient = new Stripe(STRIPE_SECRET_KEY);
+  if (!cachedStripeClient) {
+    throw new Error("Stripe client not initialized. Call initStripeClient() first.");
   }
-  return stripeClient;
+  return cachedStripeClient;
 }
 
 export function isStripeConfigured(): boolean {
-  return !!STRIPE_SECRET_KEY;
+  return stripeInitialized && !!cachedStripeClient;
 }
 
-const PRICE_MAP: Record<string, string | undefined> = {
-  solo: process.env.STRIPE_PRICE_SOLO,
-  pro: process.env.STRIPE_PRICE_PRO,
-  msp: process.env.STRIPE_PRICE_MSP,
-};
+let priceMap: Record<string, string> = {};
+
+export function setStripePriceMap(map: Record<string, string>): void {
+  priceMap = map;
+}
 
 export function getStripePriceId(planCode: string): string | undefined {
-  return PRICE_MAP[planCode];
+  return priceMap[planCode];
 }
 
 export function getPlanCodeFromPriceId(priceId: string): string | undefined {
-  for (const [code, id] of Object.entries(PRICE_MAP)) {
+  for (const [code, id] of Object.entries(priceMap)) {
     if (id === priceId) return code;
   }
   return undefined;

@@ -14,13 +14,85 @@ import { registerAuditSubscriber } from "./core/events/subscribers";
 import { startWebhookWorker } from "./modules/webhooks/worker";
 import { registerBillingRoutes } from "./modules/billing/routes";
 import { registerStripeWebhook } from "./modules/billing/webhook";
-import { seedSubscriptionPlans } from "./modules/billing/stripe";
+import { seedSubscriptionPlans, initStripeClient, setStripePriceMap } from "./modules/billing/stripe";
 import { storage } from "./storage";
 import { pool } from "./db";
+import { runMigrations } from "stripe-replit-sync";
+import { getStripeSync } from "./stripeClient";
+import { db } from "./db";
+import { sql } from "drizzle-orm";
 
 declare const __APP_VERSION__: string;
 const APP_VERSION = typeof __APP_VERSION__ !== "undefined" ? __APP_VERSION__ : "dev";
 const isApiOnly = process.env.API_ONLY === "true";
+
+async function initStripeSync(): Promise<void> {
+  const databaseUrl = process.env.DATABASE_URL;
+  if (!databaseUrl) {
+    console.warn("[stripe] DATABASE_URL not set, skipping Stripe sync init");
+    return;
+  }
+
+  try {
+    await initStripeClient();
+
+    console.log("[stripe] Running stripe-replit-sync migrations...");
+    await runMigrations({ databaseUrl });
+    console.log("[stripe] Stripe schema ready");
+
+    const stripeSync = await getStripeSync();
+
+    console.log("[stripe] Setting up managed webhook...");
+    const webhookBaseUrl = `https://${process.env.REPLIT_DOMAINS?.split(",")[0]}`;
+    try {
+      const result = await stripeSync.findOrCreateManagedWebhook(
+        `${webhookBaseUrl}/api/stripe/webhook`
+      );
+      const webhookUrl = result?.webhook?.url || result?.url || webhookBaseUrl + "/api/stripe/webhook";
+      console.log(`[stripe] Webhook configured: ${webhookUrl}`);
+    } catch (webhookErr: any) {
+      console.warn("[stripe] Managed webhook setup failed (non-fatal):", webhookErr.message);
+    }
+
+    console.log("[stripe] Syncing Stripe data in background...");
+    stripeSync.syncBackfill()
+      .then(() => console.log("[stripe] Stripe data synced"))
+      .catch((err: any) => console.error("[stripe] Error syncing Stripe data:", err));
+
+    await loadStripePriceMap();
+  } catch (error: any) {
+    console.error("[stripe] Failed to initialize Stripe sync:", error.message);
+  }
+}
+
+async function loadStripePriceMap(): Promise<void> {
+  try {
+    const result = await db.execute(sql`
+      SELECT p.metadata, pr.id as price_id
+      FROM stripe.products p
+      JOIN stripe.prices pr ON pr.product = p.id
+      WHERE p.active = true AND pr.active = true
+      AND pr.recurring IS NOT NULL
+    `);
+
+    const map: Record<string, string> = {};
+    for (const row of result.rows as any[]) {
+      const metadata = typeof row.metadata === "string" ? JSON.parse(row.metadata) : row.metadata;
+      if (metadata?.plan_code && row.price_id) {
+        map[metadata.plan_code] = row.price_id;
+      }
+    }
+
+    if (Object.keys(map).length > 0) {
+      setStripePriceMap(map);
+      console.log("[stripe] Loaded price map:", Object.keys(map).join(", "));
+    } else {
+      console.log("[stripe] No Stripe products found with plan_code metadata. Run seed-stripe-products.ts to create them.");
+    }
+  } catch (err: any) {
+    console.warn("[stripe] Could not load price map (stripe schema may not be ready yet):", err.message);
+  }
+}
 
 export async function registerRoutes(
   httpServer: Server,
@@ -49,6 +121,10 @@ export async function registerRoutes(
 
   await seedSubscriptionPlans().catch((err) =>
     console.error("[billing] Failed to seed subscription plans:", err)
+  );
+
+  await initStripeSync().catch((err) =>
+    console.error("[stripe] Stripe sync initialization failed:", err)
   );
 
   if (!isApiOnly) {
