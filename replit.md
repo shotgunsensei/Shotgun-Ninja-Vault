@@ -52,7 +52,9 @@ The application follows a modular architecture.
 - **Stripe Integration**: server/modules/billing/stripe.ts (client init, plan seeding), webhook.ts (checkout.session.completed, subscription updates/deletions), routes.ts (plans, subscription, checkout-session, customer-portal)
 - **Usage Tracking**: Reports increment reportsGenerated counter on job creation; webhooks increment webhookDeliveries on delivery attempt
 - **Client Pages**: /billing (plan cards, usage dashboard, Stripe checkout/portal), /billing/success, /billing/cancel
-- **Env Vars**: STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, STRIPE_PRICE_SOLO, STRIPE_PRICE_PRO, STRIPE_PRICE_MSP, APP_URL
+- **Env Vars**: APP_URL (auto-resolved via REPLIT_DOMAINS in production)
+- **Stripe Credentials**: Managed via Replit Stripe connector (not env vars)
+- **Enterprise Plan**: $299/month, all plans purchasable via Stripe checkout
 
 ### System Admin Module
 - **Schema**: `isSystemAdmin` boolean on users table (default false)
@@ -70,6 +72,16 @@ The application follows a modular architecture.
 - **Frontend Enforcement**: When paused, routes restricted to /evidence, /billing, /system-admin only; sidebar shows only Evidence and Billing; paused banner with countdown and action buttons
 - **Billing Routes Exempt**: Users can access billing page while paused to fix payment issues
 
+### CSV Import/Export
+- **Backend**: server/modules/core/routes.ts - CSV template downloads and bulk import endpoints
+- **Parser**: papaparse for server-side CSV parsing
+- **Templates**: GET /api/{clients,sites,assets}/template.csv - downloadable CSV templates with example data
+- **Import Endpoints**: POST /api/{clients,sites,assets}/import - accepts `{ csv: string }` body, max 500 rows per batch
+- **Validation**: Per-row validation with error reporting (row number + message), client/site name matching (case-insensitive)
+- **Client Limit Enforcement**: Client import checks tenant maxClients limit before importing
+- **Audit**: All imported records emit domain events with `source: "csv_import"` metadata
+- **UI**: Import dialog on Clients, Sites, and Assets pages with template download and file upload
+
 ## External Dependencies
 - **PostgreSQL**: Primary database for all application data.
 - **Replit Auth (OIDC)**: Used for user authentication.
@@ -81,3 +93,5 @@ The application follows a modular architecture.
 - **shadcn/ui**: UI component library.
 - **Tailwind CSS**: Utility-first CSS framework.
 - **Drizzle ORM**: TypeScript ORM for PostgreSQL.
+- **papaparse**: CSV parsing library (server-side, for bulk import).
+- **Stripe**: Payment processing via Replit connector (not direct env vars).
