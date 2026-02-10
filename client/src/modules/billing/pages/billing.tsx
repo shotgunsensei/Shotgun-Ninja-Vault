@@ -304,9 +304,9 @@ export default function BillingPage() {
                     <Button variant="secondary" className="w-full" disabled data-testid={`button-plan-current-${plan.code}`}>
                       Current Plan
                     </Button>
-                  ) : plan.code === "enterprise" ? (
-                    <Button variant="outline" className="w-full" disabled data-testid={`button-plan-contact-${plan.code}`}>
-                      Contact Sales
+                  ) : plan.monthlyPriceCents === 0 ? (
+                    <Button variant="secondary" className="w-full" disabled data-testid={`button-plan-free-${plan.code}`}>
+                      Free Plan
                     </Button>
                   ) : (
                     <Button

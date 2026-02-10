@@ -13,6 +13,12 @@ const PLANS = [
     description: "For Managed Service Providers - 25 users, 100 GB storage, 500 reports/month, 50 webhooks",
     monthlyPriceCents: 7900,
   },
+  {
+    code: "enterprise",
+    name: "SNV Enterprise",
+    description: "For large organizations - unlimited users, unlimited storage, unlimited reports, priority support",
+    monthlyPriceCents: 29900,
+  },
 ];
 
 async function seedProducts() {

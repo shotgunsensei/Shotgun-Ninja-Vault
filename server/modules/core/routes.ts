@@ -11,6 +11,7 @@ import {
 } from "@shared/schema";
 import { emitEvent } from "../../core/events/helpers";
 import { requireNotPaused } from "../../core/middleware/requireNotPaused";
+import Papa from "papaparse";
 
 export function registerCoreRoutes(app: Express) {
   app.post("/api/tenants", isAuthenticated, requireUser(), requireNotPaused(), async (req: any, res) => {
@@ -202,6 +203,229 @@ export function registerCoreRoutes(app: Express) {
         await emitEvent("create_asset", tenantId, userId, "asset", asset.id, { name: parsed.data.name });
 
         res.json(asset);
+      } catch (error: any) {
+        res.status(500).json({ message: error.message });
+      }
+    }
+  );
+
+  // ── CSV Template Downloads ─────────────────────────────────────
+
+  app.get("/api/clients/template.csv", isAuthenticated, requireRole("OWNER", "ADMIN", "TECH"), (_req: any, res) => {
+    res.setHeader("Content-Type", "text/csv");
+    res.setHeader("Content-Disposition", "attachment; filename=clients-template.csv");
+    res.send("name,email,phone,company,notes\nAcme Corp,contact@acme.com,555-0100,Acme Corporation,Primary client\n");
+  });
+
+  app.get("/api/sites/template.csv", isAuthenticated, requireRole("OWNER", "ADMIN", "TECH"), (_req: any, res) => {
+    res.setHeader("Content-Type", "text/csv");
+    res.setHeader("Content-Disposition", "attachment; filename=sites-template.csv");
+    res.send("name,address,client_name,notes\nMain Office,123 Business Ave,Acme Corp,Headquarters\n");
+  });
+
+  app.get("/api/assets/template.csv", isAuthenticated, requireRole("OWNER", "ADMIN", "TECH"), (_req: any, res) => {
+    res.setHeader("Content-Type", "text/csv");
+    res.setHeader("Content-Disposition", "attachment; filename=assets-template.csv");
+    res.send("name,type,serial_number,ip_address,client_name,site_name,notes\nDC-Server-01,Server,SN-12345,192.168.1.10,Acme Corp,Main Office,Primary domain controller\n");
+  });
+
+  // ── CSV Bulk Import ─────────────────────────────────────────
+
+  app.post(
+    "/api/clients/import",
+    isAuthenticated,
+    requireRole("OWNER", "ADMIN", "TECH"),
+    requireNotPaused(),
+    async (req: any, res) => {
+      try {
+        const { tenantId, userId } = req.tenantCtx;
+        const { csv } = req.body;
+        if (!csv || typeof csv !== "string") {
+          return res.status(400).json({ message: "CSV data is required" });
+        }
+
+        const parsed = Papa.parse<Record<string, string>>(csv, { header: true, skipEmptyLines: true });
+        if (parsed.errors.length > 0) {
+          return res.status(400).json({ message: `CSV parse error: ${parsed.errors[0].message}` });
+        }
+
+        const rows = parsed.data;
+        if (rows.length === 0) {
+          return res.status(400).json({ message: "CSV has no data rows" });
+        }
+        if (rows.length > 500) {
+          return res.status(400).json({ message: "Maximum 500 rows per import" });
+        }
+
+        const tenant = await storage.getTenantById(tenantId);
+        const existingClients = await storage.getClientsByTenant(tenantId);
+        const remaining = (tenant?.maxClients || 5) - existingClients.length;
+        if (rows.length > remaining) {
+          return res.status(400).json({ message: `Import would exceed client limit. ${remaining} slots remaining.` });
+        }
+
+        const created: any[] = [];
+        const errors: { row: number; message: string }[] = [];
+
+        for (let i = 0; i < rows.length; i++) {
+          const row = rows[i];
+          const name = row.name?.trim();
+          if (!name) {
+            errors.push({ row: i + 2, message: "Name is required" });
+            continue;
+          }
+          try {
+            const client = await storage.createClient({
+              tenantId,
+              name,
+              email: row.email?.trim() || null,
+              phone: row.phone?.trim() || null,
+              company: row.company?.trim() || null,
+              notes: row.notes?.trim() || null,
+            });
+            await emitEvent("create_client", tenantId, userId, "client", client.id, { name, source: "csv_import" });
+            created.push(client);
+          } catch (err: any) {
+            errors.push({ row: i + 2, message: err.message });
+          }
+        }
+
+        res.json({ imported: created.length, errors });
+      } catch (error: any) {
+        res.status(500).json({ message: error.message });
+      }
+    }
+  );
+
+  app.post(
+    "/api/sites/import",
+    isAuthenticated,
+    requireRole("OWNER", "ADMIN", "TECH"),
+    requireNotPaused(),
+    async (req: any, res) => {
+      try {
+        const { tenantId, userId } = req.tenantCtx;
+        const { csv } = req.body;
+        if (!csv || typeof csv !== "string") {
+          return res.status(400).json({ message: "CSV data is required" });
+        }
+
+        const parsed = Papa.parse<Record<string, string>>(csv, { header: true, skipEmptyLines: true });
+        if (parsed.errors.length > 0) {
+          return res.status(400).json({ message: `CSV parse error: ${parsed.errors[0].message}` });
+        }
+
+        const rows = parsed.data;
+        if (rows.length === 0) {
+          return res.status(400).json({ message: "CSV has no data rows" });
+        }
+        if (rows.length > 500) {
+          return res.status(400).json({ message: "Maximum 500 rows per import" });
+        }
+
+        const clients = await storage.getClientsByTenant(tenantId);
+        const clientMap = new Map(clients.map(c => [c.name.toLowerCase(), c.id]));
+
+        const created: any[] = [];
+        const errors: { row: number; message: string }[] = [];
+
+        for (let i = 0; i < rows.length; i++) {
+          const row = rows[i];
+          const name = row.name?.trim();
+          if (!name) {
+            errors.push({ row: i + 2, message: "Name is required" });
+            continue;
+          }
+          try {
+            const clientName = row.client_name?.trim();
+            const clientId = clientName ? clientMap.get(clientName.toLowerCase()) || null : null;
+
+            const site = await storage.createSite({
+              tenantId,
+              name,
+              address: row.address?.trim() || null,
+              clientId,
+              notes: row.notes?.trim() || null,
+            });
+            await emitEvent("create_site", tenantId, userId, "site", site.id, { name, source: "csv_import" });
+            created.push(site);
+          } catch (err: any) {
+            errors.push({ row: i + 2, message: err.message });
+          }
+        }
+
+        res.json({ imported: created.length, errors });
+      } catch (error: any) {
+        res.status(500).json({ message: error.message });
+      }
+    }
+  );
+
+  app.post(
+    "/api/assets/import",
+    isAuthenticated,
+    requireRole("OWNER", "ADMIN", "TECH"),
+    requireNotPaused(),
+    async (req: any, res) => {
+      try {
+        const { tenantId, userId } = req.tenantCtx;
+        const { csv } = req.body;
+        if (!csv || typeof csv !== "string") {
+          return res.status(400).json({ message: "CSV data is required" });
+        }
+
+        const parsed = Papa.parse<Record<string, string>>(csv, { header: true, skipEmptyLines: true });
+        if (parsed.errors.length > 0) {
+          return res.status(400).json({ message: `CSV parse error: ${parsed.errors[0].message}` });
+        }
+
+        const rows = parsed.data;
+        if (rows.length === 0) {
+          return res.status(400).json({ message: "CSV has no data rows" });
+        }
+        if (rows.length > 500) {
+          return res.status(400).json({ message: "Maximum 500 rows per import" });
+        }
+
+        const clients = await storage.getClientsByTenant(tenantId);
+        const clientMap = new Map(clients.map(c => [c.name.toLowerCase(), c.id]));
+        const sites = await storage.getSitesByTenant(tenantId);
+        const siteMap = new Map(sites.map(s => [s.name.toLowerCase(), s.id]));
+
+        const created: any[] = [];
+        const errors: { row: number; message: string }[] = [];
+
+        for (let i = 0; i < rows.length; i++) {
+          const row = rows[i];
+          const name = row.name?.trim();
+          if (!name) {
+            errors.push({ row: i + 2, message: "Name is required" });
+            continue;
+          }
+          try {
+            const clientName = row.client_name?.trim();
+            const clientId = clientName ? clientMap.get(clientName.toLowerCase()) || null : null;
+            const siteName = row.site_name?.trim();
+            const siteId = siteName ? siteMap.get(siteName.toLowerCase()) || null : null;
+
+            const asset = await storage.createAsset({
+              tenantId,
+              name,
+              type: row.type?.trim() || null,
+              serialNumber: row.serial_number?.trim() || null,
+              ipAddress: row.ip_address?.trim() || null,
+              clientId,
+              siteId,
+              notes: row.notes?.trim() || null,
+            });
+            await emitEvent("create_asset", tenantId, userId, "asset", asset.id, { name, source: "csv_import" });
+            created.push(asset);
+          } catch (err: any) {
+            errors.push({ row: i + 2, message: err.message });
+          }
+        }
+
+        res.json({ imported: created.length, errors });
       } catch (error: any) {
         res.status(500).json({ message: error.message });
       }

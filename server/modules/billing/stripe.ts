@@ -96,7 +96,7 @@ export const DEFAULT_PLANS: Array<{
   {
     code: "enterprise",
     name: "Enterprise",
-    monthlyPriceCents: 0,
+    monthlyPriceCents: 29900,
     limits: {
       usersMax: 999,
       storageGb: 999,
