@@ -7,6 +7,9 @@ import type { Express, RequestHandler } from "express";
 import memoize from "memoizee";
 import connectPg from "connect-pg-simple";
 import { authStorage } from "./storage";
+import { db } from "../../db";
+import { pendingInvitations, tenantMembers } from "@shared/schema";
+import { eq, and } from "drizzle-orm";
 
 const getOidcConfig = memoize(
   async () => {
@@ -59,6 +62,51 @@ async function upsertUser(claims: any) {
     lastName: claims["last_name"],
     profileImageUrl: claims["profile_image_url"],
   });
+
+  await processPendingInvitations(claims["sub"], claims["email"]);
+}
+
+async function processPendingInvitations(userId: string, email: string) {
+  if (!email) return;
+  try {
+    const invitations = await db
+      .select()
+      .from(pendingInvitations)
+      .where(eq(pendingInvitations.email, email.toLowerCase()));
+
+    for (const inv of invitations) {
+      const existing = await db
+        .select()
+        .from(tenantMembers)
+        .where(
+          and(
+            eq(tenantMembers.tenantId, inv.tenantId),
+            eq(tenantMembers.userId, userId)
+          )
+        );
+
+      if (existing.length === 0) {
+        try {
+          await db.insert(tenantMembers).values({
+            tenantId: inv.tenantId,
+            userId,
+            role: inv.role,
+          });
+          console.log(`[auth] Auto-joined user ${email} to tenant ${inv.tenantId} as ${inv.role}`);
+        } catch (insertErr: any) {
+          if (!insertErr.message?.includes("duplicate")) {
+            throw insertErr;
+          }
+        }
+      }
+
+      await db
+        .delete(pendingInvitations)
+        .where(eq(pendingInvitations.id, inv.id));
+    }
+  } catch (err) {
+    console.error("[auth] Error processing pending invitations:", err);
+  }
 }
 
 export async function setupAuth(app: Express) {

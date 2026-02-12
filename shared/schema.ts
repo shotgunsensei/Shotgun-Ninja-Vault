@@ -9,6 +9,8 @@ import {
   pgEnum,
   index,
   jsonb,
+  uniqueIndex,
+  bigint,
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -60,6 +62,7 @@ export const tenantMembers = pgTable(
   (table) => [
     index("idx_member_tenant").on(table.tenantId),
     index("idx_member_user").on(table.userId),
+    uniqueIndex("idx_member_tenant_user").on(table.tenantId, table.userId),
   ]
 );
 
@@ -75,6 +78,25 @@ export const tenantMembersRelations = relations(tenantMembers, ({ one }) => ({
 }));
 
 import { users as usersTable } from "./models/auth";
+
+export const pendingInvitations = pgTable(
+  "pending_invitations",
+  {
+    id: varchar("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    tenantId: varchar("tenant_id")
+      .notNull()
+      .references(() => tenants.id, { onDelete: "cascade" }),
+    email: text("email").notNull(),
+    role: roleEnum("role").notNull().default("TECH"),
+    createdAt: timestamp("created_at").defaultNow(),
+  },
+  (table) => [
+    index("idx_pending_inv_email").on(table.email),
+    uniqueIndex("idx_pending_inv_tenant_email").on(table.tenantId, table.email),
+  ]
+);
 
 export const clients = pgTable(
   "clients",
@@ -726,8 +748,6 @@ export const insertApiTokenSchema = createInsertSchema(apiTokens).omit({
 
 export type ApiToken = typeof apiTokens.$inferSelect;
 export type InsertApiToken = z.infer<typeof insertApiTokenSchema>;
-
-import { bigint, uniqueIndex } from "drizzle-orm/pg-core";
 
 export const subscriptionPlans = pgTable("subscription_plans", {
   id: varchar("id")

@@ -72,6 +72,12 @@ The application follows a modular architecture.
 - **Frontend Enforcement**: When paused, routes restricted to /evidence, /billing, /system-admin only; sidebar shows only Evidence and Billing; paused banner with countdown and action buttons
 - **Billing Routes Exempt**: Users can access billing page while paused to fix payment issues
 
+### Pending Invitations (Auto-Join)
+- **Schema**: pending_invitations table (id, tenantId, email, role, createdAt) with unique index on (tenantId, email)
+- **Auth Hook**: server/replit_integrations/auth/replitAuth.ts - processPendingInvitations() runs after every OIDC login, checks email against pending invitations, auto-joins user to tenant(s) with assigned role, then deletes the invitation
+- **Invite Route**: POST /api/members/invite now stores a pending_invitations record (previously only emitted an event)
+- **Race Protection**: Duplicate membership insert is caught and ignored; unique index prevents duplicate invitations
+
 ### CSV Import/Export
 - **Backend**: server/modules/core/routes.ts - CSV template downloads and bulk import endpoints
 - **Parser**: papaparse for server-side CSV parsing

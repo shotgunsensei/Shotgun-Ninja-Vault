@@ -12,6 +12,8 @@ import {
 import { emitEvent } from "../../core/events/helpers";
 import { requireNotPaused } from "../../core/middleware/requireNotPaused";
 import Papa from "papaparse";
+import { db } from "../../db";
+import { pendingInvitations } from "@shared/schema";
 
 export function registerCoreRoutes(app: Express) {
   app.post("/api/tenants", isAuthenticated, requireUser(), requireNotPaused(), async (req: any, res) => {
@@ -461,9 +463,22 @@ export function registerCoreRoutes(app: Express) {
 
         const { email, role } = parsed.data;
 
+        try {
+          await db.insert(pendingInvitations).values({
+            tenantId,
+            email: email.toLowerCase(),
+            role: role as any,
+          });
+        } catch (insertErr: any) {
+          if (insertErr.message?.includes("duplicate") || insertErr.message?.includes("unique")) {
+            return res.json({ success: true, message: `${email} already has a pending invitation.` });
+          }
+          throw insertErr;
+        }
+
         await emitEvent("invite_member", tenantId, userId, "member", undefined, { email, role });
 
-        res.json({ success: true, message: `Invite sent to ${email} as ${role}` });
+        res.json({ success: true, message: `Invitation created for ${email} as ${role}. They will be auto-added when they log in.` });
       } catch (error: any) {
         res.status(500).json({ message: error.message });
       }
