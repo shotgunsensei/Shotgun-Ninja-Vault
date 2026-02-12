@@ -1,13 +1,14 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "wouter";
 import { useState, useRef } from "react";
-import { MapPin, Plus, Search, ArrowRight, Home, Upload, Download, FileSpreadsheet } from "lucide-react";
+import { MapPin, Plus, Search, ArrowRight, Home, Upload, Download, FileSpreadsheet, Trash2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -15,6 +16,16 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import {
   Select,
   SelectContent,
@@ -31,6 +42,9 @@ export default function SitesPage() {
   const [open, setOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [importResult, setImportResult] = useState<{imported: number, errors: {row: number, message: string}[]} | null>(null);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [deleteTarget, setDeleteTarget] = useState<Site | null>(null);
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -50,6 +64,39 @@ export default function SitesPage() {
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
       setOpen(false);
       toast({ title: "Site created" });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await apiRequest("DELETE", `/api/sites/${id}`);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/sites"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
+      setDeleteTarget(null);
+      toast({ title: "Site deleted" });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const bulkDeleteMutation = useMutation({
+    mutationFn: async (ids: string[]) => {
+      const res = await apiRequest("POST", "/api/sites/bulk-delete", { ids });
+      return res.json();
+    },
+    onSuccess: (data: { deleted: number }) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/sites"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
+      setSelected(new Set());
+      setBulkDeleteOpen(false);
+      toast({ title: `${data.deleted} site${data.deleted !== 1 ? "s" : ""} deleted` });
     },
     onError: (err: Error) => {
       toast({ title: "Error", description: err.message, variant: "destructive" });
@@ -101,6 +148,24 @@ export default function SitesPage() {
       s.address?.toLowerCase().includes(search.toLowerCase())
   );
 
+  const toggleSelect = (id: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (!filtered) return;
+    if (selected.size === filtered.length) {
+      setSelected(new Set());
+    } else {
+      setSelected(new Set(filtered.map((s) => s.id)));
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="p-6 space-y-4">
@@ -127,6 +192,16 @@ export default function SitesPage() {
           </p>
         </div>
         <div className="flex gap-2 flex-wrap">
+          {selected.size > 0 && (
+            <Button
+              variant="destructive"
+              onClick={() => setBulkDeleteOpen(true)}
+              data-testid="button-bulk-delete-sites"
+            >
+              <Trash2 className="w-4 h-4 mr-2" />
+              Delete {selected.size} selected
+            </Button>
+          )}
           <Dialog open={importOpen} onOpenChange={(v) => { setImportOpen(v); if (!v) setImportResult(null); }}>
             <DialogTrigger asChild>
               <Button variant="outline" data-testid="button-import-sites">
@@ -274,33 +349,107 @@ export default function SitesPage() {
           )}
         </div>
       ) : (
-        <div className="grid gap-3">
-          {filtered.map((site) => (
-            <Card key={site.id} className="hover-elevate" data-testid={`card-site-${site.id}`}>
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between gap-4">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-9 h-9 rounded-md bg-primary/10 flex items-center justify-center flex-shrink-0">
-                      <MapPin className="w-4 h-4 text-primary" />
-                    </div>
-                    <div className="min-w-0">
-                      <p className="font-medium text-sm truncate">{site.name}</p>
-                      <div className="flex items-center gap-3 text-xs text-muted-foreground mt-0.5 flex-wrap">
-                        {site.address && (
-                          <span className="flex items-center gap-1">
-                            <Home className="w-3 h-3" />
-                            {site.address}
-                          </span>
-                        )}
+        <div className="space-y-2">
+          <div className="flex items-center gap-2 px-1">
+            <Checkbox
+              checked={filtered.length > 0 && selected.size === filtered.length}
+              onCheckedChange={toggleSelectAll}
+              data-testid="checkbox-select-all-sites"
+            />
+            <span className="text-xs text-muted-foreground">
+              {selected.size > 0 ? `${selected.size} selected` : "Select all"}
+            </span>
+          </div>
+          <div className="grid gap-3">
+            {filtered.map((site) => (
+              <Card key={site.id} className="hover-elevate" data-testid={`card-site-${site.id}`}>
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <Checkbox
+                        checked={selected.has(site.id)}
+                        onCheckedChange={() => toggleSelect(site.id)}
+                        onClick={(e) => e.stopPropagation()}
+                        data-testid={`checkbox-site-${site.id}`}
+                      />
+                      <div className="w-9 h-9 rounded-md bg-primary/10 flex items-center justify-center flex-shrink-0">
+                        <MapPin className="w-4 h-4 text-primary" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="font-medium text-sm truncate">{site.name}</p>
+                        <div className="flex items-center gap-3 text-xs text-muted-foreground mt-0.5 flex-wrap">
+                          {site.address && (
+                            <span className="flex items-center gap-1">
+                              <Home className="w-3 h-3" />
+                              {site.address}
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
+                    <div className="flex items-center gap-1 flex-shrink-0">
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setDeleteTarget(site);
+                        }}
+                        data-testid={`button-delete-site-${site.id}`}
+                      >
+                        <Trash2 className="w-4 h-4 text-muted-foreground" />
+                      </Button>
+                    </div>
                   </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                </CardContent>
+              </Card>
+            ))}
+          </div>
         </div>
       )}
+
+      <AlertDialog open={!!deleteTarget} onOpenChange={(v) => { if (!v) setDeleteTarget(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Site</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete "{deleteTarget?.name}"? Assets linked to this site will be unlinked but not deleted.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-delete-site">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => deleteTarget && deleteMutation.mutate(deleteTarget.id)}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              data-testid="button-confirm-delete-site"
+            >
+              {deleteMutation.isPending ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={bulkDeleteOpen} onOpenChange={setBulkDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete {selected.size} Site{selected.size !== 1 ? "s" : ""}</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete {selected.size} selected site{selected.size !== 1 ? "s" : ""}? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-bulk-delete-sites">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => bulkDeleteMutation.mutate(Array.from(selected))}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              data-testid="button-confirm-bulk-delete-sites"
+            >
+              {bulkDeleteMutation.isPending ? "Deleting..." : "Delete All"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

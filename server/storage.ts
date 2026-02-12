@@ -98,13 +98,19 @@ export interface IStorage {
   getClientsByTenant(tenantId: string): Promise<Client[]>;
   getClientById(tenantId: string, id: string): Promise<Client | undefined>;
   getClientDetail(tenantId: string, id: string): Promise<any>;
+  deleteClient(tenantId: string, id: string): Promise<void>;
+  deleteClients(tenantId: string, ids: string[]): Promise<number>;
 
   createSite(data: InsertSite): Promise<Site>;
   getSitesByTenant(tenantId: string): Promise<Site[]>;
+  deleteSite(tenantId: string, id: string): Promise<void>;
+  deleteSites(tenantId: string, ids: string[]): Promise<number>;
 
   createAsset(data: InsertAsset): Promise<Asset>;
   getAssetsByTenant(tenantId: string): Promise<Asset[]>;
   getAssetById(tenantId: string, id: string): Promise<Asset | undefined>;
+  deleteAsset(tenantId: string, id: string): Promise<void>;
+  deleteAssets(tenantId: string, ids: string[]): Promise<number>;
 
   createEvidence(data: InsertEvidence): Promise<EvidenceItem>;
   searchEvidence(tenantId: string, filters: SearchFilters): Promise<any[]>;
@@ -361,6 +367,21 @@ export class DatabaseStorage implements IStorage {
     };
   }
 
+  async deleteClient(tenantId: string, id: string): Promise<void> {
+    await db
+      .delete(clients)
+      .where(and(eq(clients.tenantId, tenantId), eq(clients.id, id)));
+  }
+
+  async deleteClients(tenantId: string, ids: string[]): Promise<number> {
+    if (ids.length === 0) return 0;
+    const result = await db
+      .delete(clients)
+      .where(and(eq(clients.tenantId, tenantId), inArray(clients.id, ids)))
+      .returning({ id: clients.id });
+    return result.length;
+  }
+
   async createSite(data: InsertSite): Promise<Site> {
     const [site] = await db.insert(sites).values(data).returning();
     return site;
@@ -372,6 +393,21 @@ export class DatabaseStorage implements IStorage {
       .from(sites)
       .where(eq(sites.tenantId, tenantId))
       .orderBy(desc(sites.createdAt));
+  }
+
+  async deleteSite(tenantId: string, id: string): Promise<void> {
+    await db
+      .delete(sites)
+      .where(and(eq(sites.tenantId, tenantId), eq(sites.id, id)));
+  }
+
+  async deleteSites(tenantId: string, ids: string[]): Promise<number> {
+    if (ids.length === 0) return 0;
+    const result = await db
+      .delete(sites)
+      .where(and(eq(sites.tenantId, tenantId), inArray(sites.id, ids)))
+      .returning({ id: sites.id });
+    return result.length;
   }
 
   async createAsset(data: InsertAsset): Promise<Asset> {
@@ -393,6 +429,21 @@ export class DatabaseStorage implements IStorage {
       .from(assets)
       .where(and(eq(assets.tenantId, tenantId), eq(assets.id, id)));
     return asset;
+  }
+
+  async deleteAsset(tenantId: string, id: string): Promise<void> {
+    await db
+      .delete(assets)
+      .where(and(eq(assets.tenantId, tenantId), eq(assets.id, id)));
+  }
+
+  async deleteAssets(tenantId: string, ids: string[]): Promise<number> {
+    if (ids.length === 0) return 0;
+    const result = await db
+      .delete(assets)
+      .where(and(eq(assets.tenantId, tenantId), inArray(assets.id, ids)))
+      .returning({ id: assets.id });
+    return result.length;
   }
 
   async createEvidence(data: InsertEvidence): Promise<EvidenceItem> {

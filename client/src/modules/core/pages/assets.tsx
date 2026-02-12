@@ -12,6 +12,7 @@ import {
   Upload,
   Download,
   FileSpreadsheet,
+  Trash2,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -19,6 +20,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -26,6 +28,16 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import {
   Select,
   SelectContent,
@@ -42,6 +54,9 @@ export default function AssetsPage() {
   const [open, setOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [importResult, setImportResult] = useState<{imported: number, errors: {row: number, message: string}[]} | null>(null);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [deleteTarget, setDeleteTarget] = useState<Asset | null>(null);
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -62,6 +77,39 @@ export default function AssetsPage() {
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
       setOpen(false);
       toast({ title: "Asset created" });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await apiRequest("DELETE", `/api/assets/${id}`);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/assets"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
+      setDeleteTarget(null);
+      toast({ title: "Asset deleted" });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const bulkDeleteMutation = useMutation({
+    mutationFn: async (ids: string[]) => {
+      const res = await apiRequest("POST", "/api/assets/bulk-delete", { ids });
+      return res.json();
+    },
+    onSuccess: (data: { deleted: number }) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/assets"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
+      setSelected(new Set());
+      setBulkDeleteOpen(false);
+      toast({ title: `${data.deleted} asset${data.deleted !== 1 ? "s" : ""} deleted` });
     },
     onError: (err: Error) => {
       toast({ title: "Error", description: err.message, variant: "destructive" });
@@ -114,6 +162,24 @@ export default function AssetsPage() {
       a.serialNumber?.toLowerCase().includes(search.toLowerCase())
   );
 
+  const toggleSelect = (id: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (!filtered) return;
+    if (selected.size === filtered.length) {
+      setSelected(new Set());
+    } else {
+      setSelected(new Set(filtered.map((a) => a.id)));
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="p-6 space-y-4">
@@ -140,6 +206,16 @@ export default function AssetsPage() {
           </p>
         </div>
         <div className="flex gap-2 flex-wrap">
+          {selected.size > 0 && (
+            <Button
+              variant="destructive"
+              onClick={() => setBulkDeleteOpen(true)}
+              data-testid="button-bulk-delete-assets"
+            >
+              <Trash2 className="w-4 h-4 mr-2" />
+              Delete {selected.size} selected
+            </Button>
+          )}
           <Dialog open={importOpen} onOpenChange={(v) => { setImportOpen(v); if (!v) setImportResult(null); }}>
             <DialogTrigger asChild>
               <Button variant="outline" data-testid="button-import-assets">
@@ -322,48 +398,124 @@ export default function AssetsPage() {
           )}
         </div>
       ) : (
-        <div className="grid gap-3">
-          {filtered.map((asset) => (
-            <Link key={asset.id} href={`/assets/${asset.id}`}>
-              <Card className="hover-elevate cursor-pointer" data-testid={`card-asset-${asset.id}`}>
+        <div className="space-y-2">
+          <div className="flex items-center gap-2 px-1">
+            <Checkbox
+              checked={filtered.length > 0 && selected.size === filtered.length}
+              onCheckedChange={toggleSelectAll}
+              data-testid="checkbox-select-all-assets"
+            />
+            <span className="text-xs text-muted-foreground">
+              {selected.size > 0 ? `${selected.size} selected` : "Select all"}
+            </span>
+          </div>
+          <div className="grid gap-3">
+            {filtered.map((asset) => (
+              <Card key={asset.id} className="hover-elevate" data-testid={`card-asset-${asset.id}`}>
                 <CardContent className="p-4">
                   <div className="flex items-center justify-between gap-4">
                     <div className="flex items-center gap-3 min-w-0">
-                      <div className="w-9 h-9 rounded-md bg-primary/10 flex items-center justify-center flex-shrink-0">
-                        <Server className="w-4 h-4 text-primary" />
-                      </div>
-                      <div className="min-w-0">
-                        <p className="font-medium text-sm truncate">{asset.name}</p>
-                        <div className="flex items-center gap-3 text-xs text-muted-foreground mt-0.5 flex-wrap">
-                          {asset.type && (
-                            <span className="flex items-center gap-1">
-                              <Monitor className="w-3 h-3" />
-                              {asset.type}
-                            </span>
-                          )}
-                          {asset.ipAddress && (
-                            <span className="flex items-center gap-1">
-                              <Wifi className="w-3 h-3" />
-                              {asset.ipAddress}
-                            </span>
-                          )}
-                          {asset.serialNumber && (
-                            <span className="flex items-center gap-1">
-                              <Hash className="w-3 h-3" />
-                              {asset.serialNumber}
-                            </span>
-                          )}
+                      <Checkbox
+                        checked={selected.has(asset.id)}
+                        onCheckedChange={() => toggleSelect(asset.id)}
+                        onClick={(e) => e.stopPropagation()}
+                        data-testid={`checkbox-asset-${asset.id}`}
+                      />
+                      <Link href={`/assets/${asset.id}`} className="flex items-center gap-3 min-w-0 flex-1">
+                        <div className="w-9 h-9 rounded-md bg-primary/10 flex items-center justify-center flex-shrink-0">
+                          <Server className="w-4 h-4 text-primary" />
                         </div>
-                      </div>
+                        <div className="min-w-0">
+                          <p className="font-medium text-sm truncate">{asset.name}</p>
+                          <div className="flex items-center gap-3 text-xs text-muted-foreground mt-0.5 flex-wrap">
+                            {asset.type && (
+                              <span className="flex items-center gap-1">
+                                <Monitor className="w-3 h-3" />
+                                {asset.type}
+                              </span>
+                            )}
+                            {asset.ipAddress && (
+                              <span className="flex items-center gap-1">
+                                <Wifi className="w-3 h-3" />
+                                {asset.ipAddress}
+                              </span>
+                            )}
+                            {asset.serialNumber && (
+                              <span className="flex items-center gap-1">
+                                <Hash className="w-3 h-3" />
+                                {asset.serialNumber}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </Link>
                     </div>
-                    <ArrowRight className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                    <div className="flex items-center gap-1 flex-shrink-0">
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setDeleteTarget(asset);
+                        }}
+                        data-testid={`button-delete-asset-${asset.id}`}
+                      >
+                        <Trash2 className="w-4 h-4 text-muted-foreground" />
+                      </Button>
+                      <Link href={`/assets/${asset.id}`}>
+                        <ArrowRight className="w-4 h-4 text-muted-foreground" />
+                      </Link>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
-            </Link>
-          ))}
+            ))}
+          </div>
         </div>
       )}
+
+      <AlertDialog open={!!deleteTarget} onOpenChange={(v) => { if (!v) setDeleteTarget(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Asset</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete "{deleteTarget?.name}"? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-delete-asset">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => deleteTarget && deleteMutation.mutate(deleteTarget.id)}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              data-testid="button-confirm-delete-asset"
+            >
+              {deleteMutation.isPending ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={bulkDeleteOpen} onOpenChange={setBulkDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete {selected.size} Asset{selected.size !== 1 ? "s" : ""}</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete {selected.size} selected asset{selected.size !== 1 ? "s" : ""}? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-bulk-delete-assets">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => bulkDeleteMutation.mutate(Array.from(selected))}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              data-testid="button-confirm-bulk-delete-assets"
+            >
+              {bulkDeleteMutation.isPending ? "Deleting..." : "Delete All"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

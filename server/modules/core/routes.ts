@@ -146,6 +146,46 @@ export function registerCoreRoutes(app: Express) {
     }
   );
 
+  app.delete(
+    "/api/clients/:id",
+    isAuthenticated,
+    requireRole("OWNER", "ADMIN", "TECH"),
+    requireNotPaused(),
+    async (req: any, res) => {
+      try {
+        const { tenantId, userId } = req.tenantCtx;
+        const client = await storage.getClientById(tenantId, req.params.id);
+        if (!client) return res.status(404).json({ message: "Client not found" });
+        await storage.deleteClient(tenantId, req.params.id);
+        await emitEvent("delete_client", tenantId, userId, "client", req.params.id, { name: client.name });
+        res.json({ message: "Client deleted" });
+      } catch (error: any) {
+        res.status(500).json({ message: error.message });
+      }
+    }
+  );
+
+  app.post(
+    "/api/clients/bulk-delete",
+    isAuthenticated,
+    requireRole("OWNER", "ADMIN", "TECH"),
+    requireNotPaused(),
+    async (req: any, res) => {
+      try {
+        const { tenantId, userId } = req.tenantCtx;
+        const { ids } = req.body;
+        if (!Array.isArray(ids) || ids.length === 0) {
+          return res.status(400).json({ message: "ids array is required" });
+        }
+        const deleted = await storage.deleteClients(tenantId, ids);
+        await emitEvent("bulk_delete_clients", tenantId, userId, "client", undefined, { count: deleted, ids });
+        res.json({ deleted });
+      } catch (error: any) {
+        res.status(500).json({ message: error.message });
+      }
+    }
+  );
+
   app.get("/api/sites", isAuthenticated, requireRole("OWNER", "ADMIN", "TECH"), async (req: any, res) => {
     try {
       const sites = await storage.getSitesByTenant(req.tenantCtx.tenantId);
@@ -177,6 +217,44 @@ export function registerCoreRoutes(app: Express) {
         await emitEvent("create_site", tenantId, userId, "site", site.id, { name: parsed.data.name });
 
         res.json(site);
+      } catch (error: any) {
+        res.status(500).json({ message: error.message });
+      }
+    }
+  );
+
+  app.delete(
+    "/api/sites/:id",
+    isAuthenticated,
+    requireRole("OWNER", "ADMIN", "TECH"),
+    requireNotPaused(),
+    async (req: any, res) => {
+      try {
+        const { tenantId, userId } = req.tenantCtx;
+        await storage.deleteSite(tenantId, req.params.id);
+        await emitEvent("delete_site", tenantId, userId, "site", req.params.id, {});
+        res.json({ message: "Site deleted" });
+      } catch (error: any) {
+        res.status(500).json({ message: error.message });
+      }
+    }
+  );
+
+  app.post(
+    "/api/sites/bulk-delete",
+    isAuthenticated,
+    requireRole("OWNER", "ADMIN", "TECH"),
+    requireNotPaused(),
+    async (req: any, res) => {
+      try {
+        const { tenantId, userId } = req.tenantCtx;
+        const { ids } = req.body;
+        if (!Array.isArray(ids) || ids.length === 0) {
+          return res.status(400).json({ message: "ids array is required" });
+        }
+        const deleted = await storage.deleteSites(tenantId, ids);
+        await emitEvent("bulk_delete_sites", tenantId, userId, "site", undefined, { count: deleted, ids });
+        res.json({ deleted });
       } catch (error: any) {
         res.status(500).json({ message: error.message });
       }
@@ -224,6 +302,44 @@ export function registerCoreRoutes(app: Express) {
         await emitEvent("create_asset", tenantId, userId, "asset", asset.id, { name: parsed.data.name });
 
         res.json(asset);
+      } catch (error: any) {
+        res.status(500).json({ message: error.message });
+      }
+    }
+  );
+
+  app.delete(
+    "/api/assets/:id",
+    isAuthenticated,
+    requireRole("OWNER", "ADMIN", "TECH"),
+    requireNotPaused(),
+    async (req: any, res) => {
+      try {
+        const { tenantId, userId } = req.tenantCtx;
+        await storage.deleteAsset(tenantId, req.params.id);
+        await emitEvent("delete_asset", tenantId, userId, "asset", req.params.id, {});
+        res.json({ message: "Asset deleted" });
+      } catch (error: any) {
+        res.status(500).json({ message: error.message });
+      }
+    }
+  );
+
+  app.post(
+    "/api/assets/bulk-delete",
+    isAuthenticated,
+    requireRole("OWNER", "ADMIN", "TECH"),
+    requireNotPaused(),
+    async (req: any, res) => {
+      try {
+        const { tenantId, userId } = req.tenantCtx;
+        const { ids } = req.body;
+        if (!Array.isArray(ids) || ids.length === 0) {
+          return res.status(400).json({ message: "ids array is required" });
+        }
+        const deleted = await storage.deleteAssets(tenantId, ids);
+        await emitEvent("bulk_delete_assets", tenantId, userId, "asset", undefined, { count: deleted, ids });
+        res.json({ deleted });
       } catch (error: any) {
         res.status(500).json({ message: error.message });
       }
