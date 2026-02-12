@@ -98,22 +98,13 @@ export default function AssetsPage() {
     e.target.value = "";
   };
 
-  const downloadTemplate = async () => {
-    try {
-      const res = await fetch("/api/assets/template.csv", { credentials: "include" });
-      if (!res.ok) throw new Error("Download failed");
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = "assets-template.csv";
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    } catch {
-      toast({ title: "Download failed", description: "Could not download the template.", variant: "destructive" });
-    }
+  const downloadTemplate = () => {
+    const a = document.createElement("a");
+    a.href = "/api/assets/template.csv";
+    a.download = "assets-template.csv";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
   };
 
   const filtered = assets?.filter(

@@ -95,22 +95,13 @@ export default function ClientsPage() {
     e.target.value = "";
   };
 
-  const downloadTemplate = async () => {
-    try {
-      const res = await fetch("/api/clients/template.csv", { credentials: "include" });
-      if (!res.ok) throw new Error("Download failed");
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = "clients-template.csv";
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    } catch {
-      toast({ title: "Download failed", description: "Could not download the template.", variant: "destructive" });
-    }
+  const downloadTemplate = () => {
+    const a = document.createElement("a");
+    a.href = "/api/clients/template.csv";
+    a.download = "clients-template.csv";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
   };
 
   const filtered = clients?.filter(

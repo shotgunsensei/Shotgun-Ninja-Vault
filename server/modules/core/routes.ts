@@ -16,6 +16,25 @@ import { db } from "../../db";
 import { pendingInvitations } from "@shared/schema";
 
 export function registerCoreRoutes(app: Express) {
+  // ── CSV Template Downloads (must be before /:id routes) ────────────
+  app.get("/api/clients/template.csv", (_req: any, res) => {
+    res.setHeader("Content-Type", "text/csv");
+    res.setHeader("Content-Disposition", "attachment; filename=clients-template.csv");
+    res.send("name,email,phone,company,notes\nAcme Corp,contact@acme.com,555-0100,Acme Corporation,Primary client\n");
+  });
+
+  app.get("/api/sites/template.csv", (_req: any, res) => {
+    res.setHeader("Content-Type", "text/csv");
+    res.setHeader("Content-Disposition", "attachment; filename=sites-template.csv");
+    res.send("name,address,client_name,notes\nMain Office,123 Business Ave,Acme Corp,Headquarters\n");
+  });
+
+  app.get("/api/assets/template.csv", (_req: any, res) => {
+    res.setHeader("Content-Type", "text/csv");
+    res.setHeader("Content-Disposition", "attachment; filename=assets-template.csv");
+    res.send("name,type,serial_number,ip_address,client_name,site_name,notes\nDC-Server-01,Server,SN-12345,192.168.1.10,Acme Corp,Main Office,Primary domain controller\n");
+  });
+
   app.post("/api/tenants", isAuthenticated, requireUser(), requireNotPaused(), async (req: any, res) => {
     try {
       const parsed = insertTenantSchema.pick({ name: true, slug: true }).safeParse(req.body);
@@ -210,26 +229,6 @@ export function registerCoreRoutes(app: Express) {
       }
     }
   );
-
-  // ── CSV Template Downloads ─────────────────────────────────────
-
-  app.get("/api/clients/template.csv", isAuthenticated, requireRole("OWNER", "ADMIN", "TECH"), (_req: any, res) => {
-    res.setHeader("Content-Type", "text/csv");
-    res.setHeader("Content-Disposition", "attachment; filename=clients-template.csv");
-    res.send("name,email,phone,company,notes\nAcme Corp,contact@acme.com,555-0100,Acme Corporation,Primary client\n");
-  });
-
-  app.get("/api/sites/template.csv", isAuthenticated, requireRole("OWNER", "ADMIN", "TECH"), (_req: any, res) => {
-    res.setHeader("Content-Type", "text/csv");
-    res.setHeader("Content-Disposition", "attachment; filename=sites-template.csv");
-    res.send("name,address,client_name,notes\nMain Office,123 Business Ave,Acme Corp,Headquarters\n");
-  });
-
-  app.get("/api/assets/template.csv", isAuthenticated, requireRole("OWNER", "ADMIN", "TECH"), (_req: any, res) => {
-    res.setHeader("Content-Type", "text/csv");
-    res.setHeader("Content-Disposition", "attachment; filename=assets-template.csv");
-    res.send("name,type,serial_number,ip_address,client_name,site_name,notes\nDC-Server-01,Server,SN-12345,192.168.1.10,Acme Corp,Main Office,Primary domain controller\n");
-  });
 
   // ── CSV Bulk Import ─────────────────────────────────────────
 
