@@ -19,6 +19,7 @@ import { registerStripeWebhook } from "./modules/billing/webhook";
 import { seedSubscriptionPlans, initStripeClient, setStripePriceMap } from "./modules/billing/stripe";
 import { storage } from "./storage";
 import { pool } from "./db";
+import { ensureProductionSetup } from "./productionSeed";
 import { runMigrations } from "stripe-replit-sync";
 import { getStripeSync } from "./stripeClient";
 import { db } from "./db";
@@ -127,6 +128,10 @@ export async function registerRoutes(
 
   await initStripeSync().catch((err) =>
     console.error("[stripe] Stripe sync initialization failed:", err)
+  );
+
+  await ensureProductionSetup().catch((err) =>
+    console.error("[setup] Production setup failed:", err)
   );
 
   if (!isApiOnly) {
