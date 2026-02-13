@@ -1,4 +1,4 @@
-# Shotgun Ninja Vault (SNV) - Replit Deployment Guide
+# Tech Deck - Replit Deployment Guide
 
 ## Prerequisites
 

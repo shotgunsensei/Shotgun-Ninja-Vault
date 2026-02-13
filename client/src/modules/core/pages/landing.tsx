@@ -16,13 +16,13 @@ const features = [
     icon: Users,
     title: "Multi-Tenant Teams",
     description:
-      "Role-based access control with OWNER, ADMIN, TECH, and CLIENT roles. Each organization gets their own isolated workspace.",
+      "Role-based access control with OWNER, ADMIN, TECH, and CLIENT roles. Manage tickets, invoices, and evidence across isolated workspaces.",
   },
   {
     icon: Lock,
-    title: "Audit Trail",
+    title: "Compliance & Audit",
     description:
-      "Every upload, deletion, and permission change is logged. Full accountability with a searchable audit history.",
+      "Every action is logged with a searchable audit trail. Generate compliance reports and maintain full accountability across your organization.",
   },
   {
     icon: Database,
@@ -40,11 +40,11 @@ export default function LandingPage() {
           <div className="flex items-center gap-2">
             <img
               src={logoImage}
-              alt="Shotgun Ninja Vault"
+              alt="Tech Deck"
               className="w-8 h-8 rounded-md object-cover"
             />
             <span className="font-semibold text-sm tracking-tight">
-              Shotgun Ninja Vault
+              Tech Deck
             </span>
           </div>
           <div className="flex items-center gap-2">
@@ -70,17 +70,17 @@ export default function LandingPage() {
             <div className="max-w-3xl mx-auto text-center">
               <div className="inline-flex items-center gap-1.5 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 px-3 py-1 text-xs font-medium text-white/90 mb-6">
                 <Shield className="w-3 h-3" />
-                Secure Evidence Management
+                MSP Management Platform
               </div>
               <h1 className="text-4xl sm:text-5xl font-bold tracking-tight mb-4 leading-tight text-white">
-                Your digital evidence,
+                Your MSP operations,
                 <br />
-                <span className="text-blue-400">locked down tight.</span>
+                <span className="text-blue-400">all in one place.</span>
               </h1>
               <p className="text-lg text-white/70 max-w-xl mx-auto mb-8">
-                A multi-tenant vault for MSPs, IT teams, and consultants to store,
-                tag, and search evidence files linked to clients, sites, and
-                assets.
+                A multi-tenant platform for MSPs, IT teams, and consultants to
+                manage tickets, track time, send invoices, and store evidence -
+                all in one place.
               </p>
               <div className="flex flex-wrap items-center justify-center gap-3">
                 <Button size="lg" asChild data-testid="button-get-started">
@@ -140,7 +140,7 @@ export default function LandingPage() {
             </p>
             <Button size="lg" asChild>
               <a href="/api/login">
-                Create your vault
+                Get Started Free
                 <ArrowRight className="w-4 h-4 ml-1" />
               </a>
             </Button>
@@ -150,8 +150,8 @@ export default function LandingPage() {
 
       <footer className="border-t py-6 px-6">
         <div className="max-w-6xl mx-auto flex flex-wrap items-center justify-between gap-4 text-xs text-muted-foreground">
-          <span>&copy; {new Date().getFullYear()} Shotgun Ninja Vault</span>
-          <span>Secure evidence management for IT professionals</span>
+          <span>&copy; {new Date().getFullYear()} Tech Deck</span>
+          <span>MSP management platform - from tickets to invoices and everything in-between</span>
         </div>
       </footer>
     </div>

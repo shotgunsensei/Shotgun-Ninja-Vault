@@ -11,9 +11,9 @@ function hashKey(key: string): string {
 const openApiSpec = {
   openapi: "3.0.3",
   info: {
-    title: "Shotgun Ninja Vault API",
+    title: "Tech Deck API",
     version: "1.0.0",
-    description: "Public API for Shotgun Ninja Vault. Authenticate with a Bearer token.",
+    description: "Public API for Tech Deck. Authenticate with a Bearer token.",
   },
   servers: [{ url: "/api/v1" }],
   components: {
@@ -21,7 +21,7 @@ const openApiSpec = {
       BearerAuth: {
         type: "http",
         scheme: "bearer",
-        description: "API token issued from the SNV admin panel. Prefix: snv_",
+        description: "API token issued from the Tech Deck admin panel. Prefix: snv_",
       },
     },
   },

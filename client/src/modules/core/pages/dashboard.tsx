@@ -279,7 +279,7 @@ export default function DashboardPage() {
             Dashboard
           </h1>
           <p className="text-sm text-muted-foreground">
-            Overview of your evidence vault.
+            Overview of your workspace.
           </p>
         </div>
         <Button asChild data-testid="button-upload-evidence">

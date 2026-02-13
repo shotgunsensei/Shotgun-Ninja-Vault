@@ -1,4 +1,4 @@
-# Shotgun Ninja Vault (SNV) - End-to-End Sanity Test Checklist
+# Tech Deck - End-to-End Sanity Test Checklist
 
 ## Pre-Flight
 

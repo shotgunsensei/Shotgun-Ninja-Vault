@@ -1,4 +1,4 @@
-# Shotgun Ninja Vault v1.0.0 — Release Notes
+# Tech Deck v1.0.0 — Release Notes
 
 **Release date:** February 2026
 
@@ -6,7 +6,7 @@
 
 ## Modules
 
-SNV v1.0.0 ships with **8 modules**, all enabled by default.
+Tech Deck v1.0.0 ships with **8 modules**, all enabled by default.
 
 ### Core Platform
 

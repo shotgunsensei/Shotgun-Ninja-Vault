@@ -3,19 +3,19 @@ import { getUncachableStripeClient } from "./stripeClient";
 const PLANS = [
   {
     code: "pro",
-    name: "SNV Pro",
+    name: "Tech Deck Pro",
     description: "For individual IT professionals - 5 users, 25 GB storage, API access, client portal, status pages",
     monthlyPriceCents: 2900,
   },
   {
     code: "msp",
-    name: "SNV MSP",
+    name: "Tech Deck MSP",
     description: "For Managed Service Providers - 25 users, 100 GB storage, 500 reports/month, 50 webhooks",
     monthlyPriceCents: 7900,
   },
   {
     code: "enterprise",
-    name: "SNV Enterprise",
+    name: "Tech Deck Enterprise",
     description: "For large organizations - unlimited users, unlimited storage, unlimited reports, priority support",
     monthlyPriceCents: 29900,
   },
@@ -52,7 +52,7 @@ async function seedProducts() {
       description: plan.description,
       metadata: {
         plan_code: plan.code,
-        app: "snv",
+        app: "techdeck",
       },
     });
     console.log(`  Product created: ${product.id}`);

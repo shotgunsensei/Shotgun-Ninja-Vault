@@ -1,7 +1,7 @@
-# Shotgun Ninja Vault (SNV)
+# Tech Deck
 
 ## Overview
-Shotgun Ninja Vault (SNV) is a multi-tenant SaaS web application designed for IT professionals and Managed Service Providers (MSPs). Its primary purpose is to provide a secure platform for managing digital evidence, offering features such as role-based access control, comprehensive evidence file management, client and asset tracking, and detailed audit logging. The platform is built with a modular architecture to ensure scalability and extensibility, including a dedicated license server module. SNV aims to streamline digital evidence management workflows, enhance security, and provide robust reporting capabilities for compliance and operational efficiency.
+Tech Deck is a multi-tenant SaaS web application designed for IT professionals and Managed Service Providers (MSPs). Its primary purpose is to provide a comprehensive platform for managing MSP operations - from tickets to invoices and everything in-between - offering features such as role-based access control, comprehensive evidence file management, client and asset tracking, and detailed audit logging. The platform is built with a modular architecture to ensure scalability and extensibility, including a dedicated license server module. Tech Deck aims to streamline MSP management workflows, enhance security, and provide robust reporting capabilities for compliance and operational efficiency.
 
 ## User Preferences
 I prefer detailed explanations.

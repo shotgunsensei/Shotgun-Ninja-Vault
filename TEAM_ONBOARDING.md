@@ -1,6 +1,6 @@
-# Shotgun Ninja Vault - Team Onboarding Guide
+# Tech Deck - Team Onboarding Guide
 
-Welcome to Shotgun Ninja Vault (SNV)! This guide will walk you through getting started with the platform.
+Welcome to Tech Deck! This guide will walk you through getting started with the platform.
 
 ## Getting Access
 
@@ -24,7 +24,7 @@ Your account has been pre-configured for the **Xodus Technology Professionals** 
 | T. Foye        | tfoye@xodus-is.com           | Tech  |
 | A. Wilson      | awilson@xodus-is.com         | Tech  |
 
-### Step 2: Log In to SNV
+### Step 2: Log In to Tech Deck
 
 1. Open the application URL (provided by your admin)
 2. Click **"Log in with Replit"**

@@ -899,3 +899,447 @@ export type StatusIncident = typeof statusIncidents.$inferSelect;
 export type InsertStatusIncident = z.infer<typeof insertStatusIncidentSchema>;
 export type ReportJob = typeof reportJobs.$inferSelect;
 export type InsertReportJob = z.infer<typeof insertReportJobSchema>;
+
+export const ticketPriorityEnum = pgEnum("ticket_priority", [
+  "critical",
+  "high",
+  "medium",
+  "low",
+]);
+
+export const ticketStatusEnum = pgEnum("ticket_status", [
+  "open",
+  "in_progress",
+  "waiting_on_client",
+  "resolved",
+  "closed",
+]);
+
+export const tickets = pgTable(
+  "tickets",
+  {
+    id: varchar("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    tenantId: varchar("tenant_id")
+      .notNull()
+      .references(() => tenants.id, { onDelete: "cascade" }),
+    number: integer("number").notNull(),
+    title: text("title").notNull(),
+    description: text("description"),
+    priority: ticketPriorityEnum("priority").notNull().default("medium"),
+    status: ticketStatusEnum("status").notNull().default("open"),
+    clientId: varchar("client_id").references(() => clients.id, { onDelete: "set null" }),
+    siteId: varchar("site_id").references(() => sites.id, { onDelete: "set null" }),
+    assetId: varchar("asset_id").references(() => assets.id, { onDelete: "set null" }),
+    assignedToId: varchar("assigned_to_id").references(() => usersTable.id, { onDelete: "set null" }),
+    createdById: varchar("created_by_id").references(() => usersTable.id, { onDelete: "set null" }),
+    slaProfileId: varchar("sla_profile_id"),
+    responseDeadline: timestamp("response_deadline"),
+    resolutionDeadline: timestamp("resolution_deadline"),
+    respondedAt: timestamp("responded_at"),
+    resolvedAt: timestamp("resolved_at"),
+    closedAt: timestamp("closed_at"),
+    createdAt: timestamp("created_at").defaultNow(),
+    updatedAt: timestamp("updated_at").defaultNow(),
+  },
+  (table) => [
+    index("idx_ticket_tenant").on(table.tenantId),
+    index("idx_ticket_status").on(table.tenantId, table.status),
+    index("idx_ticket_assigned").on(table.assignedToId),
+    index("idx_ticket_client").on(table.clientId),
+    uniqueIndex("idx_ticket_number").on(table.tenantId, table.number),
+  ]
+);
+
+export const ticketsRelations = relations(tickets, ({ one, many }) => ({
+  tenant: one(tenants, { fields: [tickets.tenantId], references: [tenants.id] }),
+  client: one(clients, { fields: [tickets.clientId], references: [clients.id] }),
+  site: one(sites, { fields: [tickets.siteId], references: [sites.id] }),
+  asset: one(assets, { fields: [tickets.assetId], references: [assets.id] }),
+  assignedTo: one(usersTable, { fields: [tickets.assignedToId], references: [usersTable.id], relationName: "assignedTickets" }),
+  createdBy: one(usersTable, { fields: [tickets.createdById], references: [usersTable.id], relationName: "createdTickets" }),
+  comments: many(ticketComments),
+}));
+
+export const ticketComments = pgTable(
+  "ticket_comments",
+  {
+    id: varchar("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    tenantId: varchar("tenant_id")
+      .notNull()
+      .references(() => tenants.id, { onDelete: "cascade" }),
+    ticketId: varchar("ticket_id")
+      .notNull()
+      .references(() => tickets.id, { onDelete: "cascade" }),
+    userId: varchar("user_id").references(() => usersTable.id, { onDelete: "set null" }),
+    content: text("content").notNull(),
+    isInternal: boolean("is_internal").notNull().default(false),
+    createdAt: timestamp("created_at").defaultNow(),
+    updatedAt: timestamp("updated_at").defaultNow(),
+  },
+  (table) => [
+    index("idx_comment_ticket").on(table.ticketId),
+    index("idx_comment_tenant").on(table.tenantId),
+  ]
+);
+
+export const ticketCommentsRelations = relations(ticketComments, ({ one }) => ({
+  ticket: one(tickets, { fields: [ticketComments.ticketId], references: [tickets.id] }),
+  user: one(usersTable, { fields: [ticketComments.userId], references: [usersTable.id] }),
+}));
+
+export const insertTicketSchema = createInsertSchema(tickets).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export const insertTicketCommentSchema = createInsertSchema(ticketComments).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type Ticket = typeof tickets.$inferSelect;
+export type InsertTicket = z.infer<typeof insertTicketSchema>;
+export type TicketComment = typeof ticketComments.$inferSelect;
+export type InsertTicketComment = z.infer<typeof insertTicketCommentSchema>;
+
+export const slaProfiles = pgTable(
+  "sla_profiles",
+  {
+    id: varchar("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    tenantId: varchar("tenant_id")
+      .notNull()
+      .references(() => tenants.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    description: text("description"),
+    criticalResponseMinutes: integer("critical_response_minutes").notNull().default(30),
+    criticalResolutionMinutes: integer("critical_resolution_minutes").notNull().default(240),
+    highResponseMinutes: integer("high_response_minutes").notNull().default(60),
+    highResolutionMinutes: integer("high_resolution_minutes").notNull().default(480),
+    mediumResponseMinutes: integer("medium_response_minutes").notNull().default(240),
+    mediumResolutionMinutes: integer("medium_resolution_minutes").notNull().default(1440),
+    lowResponseMinutes: integer("low_response_minutes").notNull().default(480),
+    lowResolutionMinutes: integer("low_resolution_minutes").notNull().default(2880),
+    isDefault: boolean("is_default").notNull().default(false),
+    createdAt: timestamp("created_at").defaultNow(),
+    updatedAt: timestamp("updated_at").defaultNow(),
+  },
+  (table) => [index("idx_sla_tenant").on(table.tenantId)]
+);
+
+export const insertSlaProfileSchema = createInsertSchema(slaProfiles).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type SlaProfile = typeof slaProfiles.$inferSelect;
+export type InsertSlaProfile = z.infer<typeof insertSlaProfileSchema>;
+
+export const appointments = pgTable(
+  "appointments",
+  {
+    id: varchar("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    tenantId: varchar("tenant_id")
+      .notNull()
+      .references(() => tenants.id, { onDelete: "cascade" }),
+    title: text("title").notNull(),
+    description: text("description"),
+    startTime: timestamp("start_time").notNull(),
+    endTime: timestamp("end_time").notNull(),
+    ticketId: varchar("ticket_id").references(() => tickets.id, { onDelete: "set null" }),
+    clientId: varchar("client_id").references(() => clients.id, { onDelete: "set null" }),
+    siteId: varchar("site_id").references(() => sites.id, { onDelete: "set null" }),
+    assignedToId: varchar("assigned_to_id").references(() => usersTable.id, { onDelete: "set null" }),
+    createdById: varchar("created_by_id").references(() => usersTable.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at").defaultNow(),
+    updatedAt: timestamp("updated_at").defaultNow(),
+  },
+  (table) => [
+    index("idx_appointment_tenant").on(table.tenantId),
+    index("idx_appointment_time").on(table.tenantId, table.startTime),
+    index("idx_appointment_assigned").on(table.assignedToId),
+  ]
+);
+
+export const appointmentsRelations = relations(appointments, ({ one }) => ({
+  tenant: one(tenants, { fields: [appointments.tenantId], references: [tenants.id] }),
+  ticket: one(tickets, { fields: [appointments.ticketId], references: [tickets.id] }),
+  client: one(clients, { fields: [appointments.clientId], references: [clients.id] }),
+  site: one(sites, { fields: [appointments.siteId], references: [sites.id] }),
+  assignedTo: one(usersTable, { fields: [appointments.assignedToId], references: [usersTable.id], relationName: "assignedAppointments" }),
+  createdBy: one(usersTable, { fields: [appointments.createdById], references: [usersTable.id], relationName: "createdAppointments" }),
+}));
+
+export const insertAppointmentSchema = createInsertSchema(appointments).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type Appointment = typeof appointments.$inferSelect;
+export type InsertAppointment = z.infer<typeof insertAppointmentSchema>;
+
+export const timeEntries = pgTable(
+  "time_entries",
+  {
+    id: varchar("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    tenantId: varchar("tenant_id")
+      .notNull()
+      .references(() => tenants.id, { onDelete: "cascade" }),
+    ticketId: varchar("ticket_id").references(() => tickets.id, { onDelete: "set null" }),
+    clientId: varchar("client_id").references(() => clients.id, { onDelete: "set null" }),
+    userId: varchar("user_id")
+      .notNull()
+      .references(() => usersTable.id, { onDelete: "cascade" }),
+    description: text("description"),
+    minutes: integer("minutes").notNull(),
+    billable: boolean("billable").notNull().default(true),
+    rateOverrideCents: integer("rate_override_cents"),
+    date: timestamp("date").notNull(),
+    invoiceId: varchar("invoice_id"),
+    createdAt: timestamp("created_at").defaultNow(),
+    updatedAt: timestamp("updated_at").defaultNow(),
+  },
+  (table) => [
+    index("idx_time_tenant").on(table.tenantId),
+    index("idx_time_ticket").on(table.ticketId),
+    index("idx_time_user").on(table.userId),
+    index("idx_time_client").on(table.clientId),
+    index("idx_time_invoice").on(table.invoiceId),
+  ]
+);
+
+export const timeEntriesRelations = relations(timeEntries, ({ one }) => ({
+  tenant: one(tenants, { fields: [timeEntries.tenantId], references: [tenants.id] }),
+  ticket: one(tickets, { fields: [timeEntries.ticketId], references: [tickets.id] }),
+  client: one(clients, { fields: [timeEntries.clientId], references: [clients.id] }),
+  user: one(usersTable, { fields: [timeEntries.userId], references: [usersTable.id] }),
+}));
+
+export const insertTimeEntrySchema = createInsertSchema(timeEntries).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type TimeEntry = typeof timeEntries.$inferSelect;
+export type InsertTimeEntry = z.infer<typeof insertTimeEntrySchema>;
+
+export const billingConfigs = pgTable(
+  "billing_configs",
+  {
+    id: varchar("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    tenantId: varchar("tenant_id")
+      .notNull()
+      .references(() => tenants.id, { onDelete: "cascade" })
+      .unique(),
+    defaultHourlyRateCents: integer("default_hourly_rate_cents").notNull().default(15000),
+    currency: text("currency").notNull().default("USD"),
+    companyName: text("company_name"),
+    companyAddress: text("company_address"),
+    companyPhone: text("company_phone"),
+    companyEmail: text("company_email"),
+    invoicePrefix: text("invoice_prefix").notNull().default("INV"),
+    invoiceNextNumber: integer("invoice_next_number").notNull().default(1001),
+    paymentTermsDays: integer("payment_terms_days").notNull().default(30),
+    invoiceNotes: text("invoice_notes"),
+    createdAt: timestamp("created_at").defaultNow(),
+    updatedAt: timestamp("updated_at").defaultNow(),
+  },
+  (table) => [index("idx_billing_config_tenant").on(table.tenantId)]
+);
+
+export const insertBillingConfigSchema = createInsertSchema(billingConfigs).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type BillingConfig = typeof billingConfigs.$inferSelect;
+export type InsertBillingConfig = z.infer<typeof insertBillingConfigSchema>;
+
+export const invoiceStatusEnum = pgEnum("invoice_status", [
+  "draft",
+  "sent",
+  "viewed",
+  "paid",
+  "partial",
+  "overdue",
+  "cancelled",
+]);
+
+export const invoices = pgTable(
+  "invoices",
+  {
+    id: varchar("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    tenantId: varchar("tenant_id")
+      .notNull()
+      .references(() => tenants.id, { onDelete: "cascade" }),
+    clientId: varchar("client_id").references(() => clients.id, { onDelete: "set null" }),
+    invoiceNumber: text("invoice_number").notNull(),
+    status: invoiceStatusEnum("status").notNull().default("draft"),
+    issuedAt: timestamp("issued_at"),
+    dueAt: timestamp("due_at"),
+    paidAt: timestamp("paid_at"),
+    subtotalCents: integer("subtotal_cents").notNull().default(0),
+    taxCents: integer("tax_cents").notNull().default(0),
+    totalCents: integer("total_cents").notNull().default(0),
+    amountPaidCents: integer("amount_paid_cents").notNull().default(0),
+    currency: text("currency").notNull().default("USD"),
+    notes: text("notes"),
+    publicToken: text("public_token"),
+    createdAt: timestamp("created_at").defaultNow(),
+    updatedAt: timestamp("updated_at").defaultNow(),
+  },
+  (table) => [
+    index("idx_invoice_tenant").on(table.tenantId),
+    index("idx_invoice_client").on(table.clientId),
+    index("idx_invoice_status").on(table.tenantId, table.status),
+    uniqueIndex("idx_invoice_number").on(table.tenantId, table.invoiceNumber),
+    index("idx_invoice_public_token").on(table.publicToken),
+  ]
+);
+
+export const invoicesRelations = relations(invoices, ({ one, many }) => ({
+  tenant: one(tenants, { fields: [invoices.tenantId], references: [tenants.id] }),
+  client: one(clients, { fields: [invoices.clientId], references: [clients.id] }),
+  lineItems: many(invoiceLineItems),
+}));
+
+export const invoiceLineItems = pgTable(
+  "invoice_line_items",
+  {
+    id: varchar("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    tenantId: varchar("tenant_id")
+      .notNull()
+      .references(() => tenants.id, { onDelete: "cascade" }),
+    invoiceId: varchar("invoice_id")
+      .notNull()
+      .references(() => invoices.id, { onDelete: "cascade" }),
+    description: text("description").notNull(),
+    quantity: integer("quantity").notNull().default(1),
+    unitPriceCents: integer("unit_price_cents").notNull(),
+    totalCents: integer("total_cents").notNull(),
+    timeEntryId: varchar("time_entry_id").references(() => timeEntries.id, { onDelete: "set null" }),
+    sortOrder: integer("sort_order").notNull().default(0),
+    createdAt: timestamp("created_at").defaultNow(),
+  },
+  (table) => [
+    index("idx_line_item_invoice").on(table.invoiceId),
+    index("idx_line_item_tenant").on(table.tenantId),
+  ]
+);
+
+export const invoiceLineItemsRelations = relations(invoiceLineItems, ({ one }) => ({
+  invoice: one(invoices, { fields: [invoiceLineItems.invoiceId], references: [invoices.id] }),
+  timeEntry: one(timeEntries, { fields: [invoiceLineItems.timeEntryId], references: [timeEntries.id] }),
+}));
+
+export const insertInvoiceSchema = createInsertSchema(invoices).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export const insertInvoiceLineItemSchema = createInsertSchema(invoiceLineItems).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type Invoice = typeof invoices.$inferSelect;
+export type InsertInvoice = z.infer<typeof insertInvoiceSchema>;
+export type InvoiceLineItem = typeof invoiceLineItems.$inferSelect;
+export type InsertInvoiceLineItem = z.infer<typeof insertInvoiceLineItemSchema>;
+
+export const kbArticles = pgTable(
+  "kb_articles",
+  {
+    id: varchar("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    tenantId: varchar("tenant_id")
+      .notNull()
+      .references(() => tenants.id, { onDelete: "cascade" }),
+    title: text("title").notNull(),
+    slug: text("slug").notNull(),
+    content: text("content").notNull().default(""),
+    category: text("category"),
+    isPublished: boolean("is_published").notNull().default(false),
+    authorId: varchar("author_id").references(() => usersTable.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at").defaultNow(),
+    updatedAt: timestamp("updated_at").defaultNow(),
+  },
+  (table) => [
+    index("idx_kb_tenant").on(table.tenantId),
+    uniqueIndex("idx_kb_slug").on(table.tenantId, table.slug),
+    index("idx_kb_category").on(table.tenantId, table.category),
+  ]
+);
+
+export const kbArticlesRelations = relations(kbArticles, ({ one }) => ({
+  tenant: one(tenants, { fields: [kbArticles.tenantId], references: [tenants.id] }),
+  author: one(usersTable, { fields: [kbArticles.authorId], references: [usersTable.id] }),
+}));
+
+export const insertKbArticleSchema = createInsertSchema(kbArticles).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type KbArticle = typeof kbArticles.$inferSelect;
+export type InsertKbArticle = z.infer<typeof insertKbArticleSchema>;
+
+export const recurringTicketTemplates = pgTable(
+  "recurring_ticket_templates",
+  {
+    id: varchar("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    tenantId: varchar("tenant_id")
+      .notNull()
+      .references(() => tenants.id, { onDelete: "cascade" }),
+    title: text("title").notNull(),
+    description: text("description"),
+    priority: ticketPriorityEnum("priority").notNull().default("medium"),
+    clientId: varchar("client_id").references(() => clients.id, { onDelete: "set null" }),
+    siteId: varchar("site_id").references(() => sites.id, { onDelete: "set null" }),
+    assetId: varchar("asset_id").references(() => assets.id, { onDelete: "set null" }),
+    assignedToId: varchar("assigned_to_id").references(() => usersTable.id, { onDelete: "set null" }),
+    cronExpression: text("cron_expression").notNull(),
+    enabled: boolean("enabled").notNull().default(true),
+    lastGeneratedAt: timestamp("last_generated_at"),
+    nextRunAt: timestamp("next_run_at"),
+    createdAt: timestamp("created_at").defaultNow(),
+    updatedAt: timestamp("updated_at").defaultNow(),
+  },
+  (table) => [
+    index("idx_recurring_tenant").on(table.tenantId),
+    index("idx_recurring_next_run").on(table.enabled, table.nextRunAt),
+  ]
+);
+
+export const insertRecurringTicketTemplateSchema = createInsertSchema(recurringTicketTemplates).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type RecurringTicketTemplate = typeof recurringTicketTemplates.$inferSelect;
+export type InsertRecurringTicketTemplate = z.infer<typeof insertRecurringTicketTemplateSchema>;

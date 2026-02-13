@@ -107,7 +107,7 @@ export default function PublicStatusPage() {
     <div className="min-h-screen bg-background">
       <div className="max-w-3xl mx-auto px-4 py-8 space-y-6">
         <div className="flex items-center gap-3">
-          <img src={logoImage} alt="SNV" className="w-8 h-8 rounded-md" />
+          <img src={logoImage} alt="Tech Deck" className="w-8 h-8 rounded-md" />
           <div>
             <h1 className="text-xl font-bold tracking-tight" data-testid="text-public-status-title">{page.title}</h1>
             {page.description && <p className="text-sm text-muted-foreground">{page.description}</p>}
@@ -183,7 +183,7 @@ export default function PublicStatusPage() {
         )}
 
         <div className="text-center text-xs text-muted-foreground pt-4 border-t">
-          Powered by Shotgun Ninja Vault
+          Powered by Tech Deck
         </div>
       </div>
     </div>

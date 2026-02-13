@@ -1,12 +1,12 @@
-# Shotgun Ninja Vault (SNV)
+# Tech Deck
 
-**v1.0.0** — Multi-tenant, security-first evidence and licensing platform for MSPs, IT teams, and digital creators.
+**v1.0.0** — Multi-tenant MSP management platform for IT teams, MSPs, and digital creators.
 
 ---
 
 ## Modules
 
-SNV ships with **8 modules**, all enabled by default:
+Tech Deck ships with **8 modules**, all enabled by default:
 
 | Module | Description |
 |--------|-------------|

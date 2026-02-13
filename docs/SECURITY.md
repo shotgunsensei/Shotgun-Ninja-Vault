@@ -1,4 +1,4 @@
-# Security Policy — Shotgun Ninja Vault
+# Security Policy — Tech Deck
 
 ---
 
@@ -83,7 +83,7 @@
 
 ## Responsible Disclosure
 
-If you discover a security vulnerability in Shotgun Ninja Vault, please
+If you discover a security vulnerability in Tech Deck, please
 report it responsibly.
 
 **Contact:** security@your-domain.com *(replace with your actual contact)*

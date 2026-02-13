@@ -109,15 +109,15 @@ export function AppSidebar({ role, isSystemAdmin = false, isPaused = false }: Ap
           <div className="flex items-center gap-2 cursor-pointer">
             <img
               src={logoImage}
-              alt="Shotgun Ninja Vault"
+              alt="Tech Deck"
               className="w-8 h-8 rounded-md object-cover"
             />
             <div>
               <h2 className="text-sm font-semibold tracking-tight leading-none">
-                Shotgun Ninja
+                Tech Deck
               </h2>
               <p className="text-xs text-muted-foreground leading-none mt-0.5">
-                Vault
+                MSP Platform
               </p>
             </div>
           </div>

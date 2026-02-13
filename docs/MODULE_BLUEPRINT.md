@@ -1,6 +1,6 @@
-# SNV Module Blueprint
+# Tech Deck Module Blueprint
 
-How to add a new module to Shotgun Ninja Vault. Follow every section in order.
+How to add a new module to Tech Deck. Follow every section in order.
 
 ---
 
