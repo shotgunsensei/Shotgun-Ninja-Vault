@@ -19,6 +19,11 @@ export interface DashboardStats {
   maxClients: number;
   maxEvidence: number;
   recentEvidence: EvidenceWithRelations[];
+  openTickets: number;
+  overdueTickets: number;
+  upcomingAppointments: number;
+  unpaidInvoiceCents: number;
+  unbilledMinutes: number;
 }
 
 export interface EvidenceWithRelations {

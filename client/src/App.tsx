@@ -39,10 +39,16 @@ import {
 import { WebhooksPage } from "@/modules/webhooks";
 import { StatusAdminPage, PublicStatusPage } from "@/modules/status";
 import { ReportsPage } from "@/modules/reports";
-import { PortalHomePage, PortalClientDetailPage, PortalEvidencePage } from "@/modules/portal";
+import { PortalHomePage, PortalClientDetailPage, PortalEvidencePage, PortalTicketsPage, PortalInvoicesPage } from "@/modules/portal";
 import { ApiTokensPage } from "@/modules/api";
 import { BillingPage, BillingSuccessPage, BillingCancelPage } from "@/modules/billing";
 import { AdminPanelPage } from "@/modules/admin";
+import { TicketsPage, TicketDetailPage } from "@/modules/tickets";
+import { CalendarPage } from "@/modules/calendar";
+import { TimeEntriesPage } from "@/modules/time";
+import { BillingSettingsPage, InvoicesPage, InvoiceDetailPage } from "@/modules/invoicing";
+import { KbListPage, KbArticlePage } from "@/modules/kb";
+import { RecurringTemplatesPage } from "@/modules/recurring";
 
 import NotFound from "@/pages/not-found";
 
@@ -128,13 +134,25 @@ function AuthenticatedApp() {
                 {isClient && <Route path="/portal" component={PortalHomePage} />}
                 {isClient && <Route path="/portal/clients/:id" component={PortalClientDetailPage} />}
                 {isClient && <Route path="/portal/evidence" component={PortalEvidencePage} />}
+                {isClient && <Route path="/portal/tickets" component={PortalTicketsPage} />}
+                {isClient && <Route path="/portal/invoices" component={PortalInvoicesPage} />}
+                {!isClient && <Route path="/tickets" component={TicketsPage} />}
+                {!isClient && <Route path="/tickets/:id" component={TicketDetailPage} />}
                 {!isClient && <Route path="/clients" component={ClientsPage} />}
                 {!isClient && <Route path="/clients/:id" component={ClientDetailPage} />}
                 {!isClient && <Route path="/sites" component={SitesPage} />}
                 {!isClient && <Route path="/assets" component={AssetsPage} />}
+                {!isClient && <Route path="/calendar" component={CalendarPage} />}
+                {!isClient && <Route path="/time" component={TimeEntriesPage} />}
+                {!isClient && <Route path="/kb" component={KbListPage} />}
+                {!isClient && <Route path="/kb/:id" component={KbArticlePage} />}
                 {!isClient && <Route path="/evidence" component={EvidencePage} />}
                 {!isClient && <Route path="/evidence/upload" component={EvidenceUploadPage} />}
                 {!isClient && <Route path="/evidence/:id" component={EvidenceDetailPage} />}
+                {isAdminOrOwner && <Route path="/invoices" component={InvoicesPage} />}
+                {isAdminOrOwner && <Route path="/invoices/:id" component={InvoiceDetailPage} />}
+                {isAdminOrOwner && <Route path="/billing-settings" component={BillingSettingsPage} />}
+                {isAdminOrOwner && <Route path="/recurring-tickets" component={RecurringTemplatesPage} />}
                 {isAdminOrOwner && <Route path="/team" component={TeamPage} />}
                 {isAdminOrOwner && <Route path="/audit" component={AuditPage} />}
                 {isAdminOrOwner && <Route path="/client-access" component={ClientAccessPage} />}

@@ -10,6 +10,10 @@ import {
   Search,
   Upload,
   Clock,
+  TicketIcon,
+  CalendarDays,
+  Receipt,
+  DollarSign,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -292,12 +296,53 @@ export default function DashboardPage() {
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
+          title="Open Tickets"
+          value={stats?.openTickets || 0}
+          icon={TicketIcon}
+          href="/tickets"
+        />
+        <StatCard
+          title="Upcoming Appointments"
+          value={stats?.upcomingAppointments || 0}
+          icon={CalendarDays}
+          href="/calendar"
+        />
+        <StatCard
           title="Clients"
           value={stats?.totalClients || 0}
           max={stats?.maxClients}
           icon={Users}
           href="/clients"
         />
+        <StatCard
+          title="Evidence Items"
+          value={stats?.totalEvidence || 0}
+          max={stats?.maxEvidence}
+          icon={FileText}
+          href="/evidence"
+        />
+      </div>
+
+      {(stats?.overdueTickets || 0) > 0 && (
+        <Card className="border-destructive/50 bg-destructive/5">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <AlertTriangle className="w-5 h-5 text-destructive flex-shrink-0" />
+              <div>
+                <p className="text-sm font-medium">
+                  {stats!.overdueTickets} overdue ticket{stats!.overdueTickets > 1 ? "s" : ""} need attention
+                </p>
+                <p className="text-xs text-muted-foreground mt-0.5">SLA resolution deadline has passed</p>
+              </div>
+              <Button variant="outline" size="sm" asChild className="ml-auto flex-shrink-0">
+                <Link href="/tickets">View Tickets</Link>
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
           title="Sites"
           value={stats?.totalSites || 0}
@@ -310,13 +355,32 @@ export default function DashboardPage() {
           icon={Server}
           href="/assets"
         />
-        <StatCard
-          title="Evidence Items"
-          value={stats?.totalEvidence || 0}
-          max={stats?.maxEvidence}
-          icon={FileText}
-          href="/evidence"
-        />
+        <Card className="hover-elevate cursor-pointer" onClick={() => window.location.href = "/invoices"}>
+          <CardContent className="p-4">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-xs text-muted-foreground font-medium">Unpaid Invoices</p>
+                <p className="text-2xl font-bold mt-1">${((stats?.unpaidInvoiceCents || 0) / 100).toFixed(2)}</p>
+              </div>
+              <div className="w-9 h-9 rounded-md bg-primary/10 flex items-center justify-center flex-shrink-0">
+                <Receipt className="w-4 h-4 text-primary" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="hover-elevate cursor-pointer" onClick={() => window.location.href = "/time"}>
+          <CardContent className="p-4">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-xs text-muted-foreground font-medium">Unbilled Time</p>
+                <p className="text-2xl font-bold mt-1">{Math.floor((stats?.unbilledMinutes || 0) / 60)}h {(stats?.unbilledMinutes || 0) % 60}m</p>
+              </div>
+              <div className="w-9 h-9 rounded-md bg-primary/10 flex items-center justify-center flex-shrink-0">
+                <Clock className="w-4 h-4 text-primary" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       <div className="relative">

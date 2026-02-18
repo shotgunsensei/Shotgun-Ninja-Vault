@@ -11,6 +11,12 @@ import { registerPortalRoutes } from "./modules/portal/routes";
 import { registerApiV1Routes } from "./modules/api/routes";
 import { registerApiTokenAdminRoutes } from "./modules/api/adminRoutes";
 import { registerAdminRoutes } from "./modules/admin/routes";
+import { registerTicketRoutes } from "./modules/tickets/routes";
+import { registerCalendarRoutes } from "./modules/calendar/routes";
+import { registerTimeRoutes } from "./modules/time/routes";
+import { registerInvoicingRoutes } from "./modules/invoicing/routes";
+import { registerKbRoutes } from "./modules/kb/routes";
+import { registerRecurringRoutes } from "./modules/recurring/routes";
 import { registerAuditSubscriber } from "./core/events/subscribers";
 import { startWebhookWorker } from "./modules/webhooks/worker";
 import { startGraceCleanupJob } from "./core/billing/graceCleanup";
@@ -150,6 +156,12 @@ export async function registerRoutes(
     registerApiTokenAdminRoutes(app);
     registerBillingRoutes(app);
     registerAdminRoutes(app);
+    registerTicketRoutes(app);
+    registerCalendarRoutes(app);
+    registerTimeRoutes(app);
+    registerInvoicingRoutes(app);
+    registerKbRoutes(app);
+    registerRecurringRoutes(app);
 
     startGraceCleanupJob();
   }

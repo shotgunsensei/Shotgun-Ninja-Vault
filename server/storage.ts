@@ -60,10 +60,41 @@ import {
   type InsertTenantSubscription,
   usageCountersMonthly,
   type UsageCounter,
+  tickets,
+  ticketComments,
+  slaProfiles,
+  type Ticket,
+  type InsertTicket,
+  type TicketComment,
+  type InsertTicketComment,
+  type SlaProfile,
+  type InsertSlaProfile,
+  appointments,
+  timeEntries,
+  billingConfigs,
+  invoices,
+  invoiceLineItems,
+  kbArticles,
+  recurringTicketTemplates,
+  type Appointment,
+  type InsertAppointment,
+  type TimeEntry,
+  type InsertTimeEntry,
+  type BillingConfig,
+  type InsertBillingConfig,
+  type Invoice,
+  type InsertInvoice,
+  type InvoiceLineItem,
+  type InsertInvoiceLineItem,
+  type KbArticle,
+  type InsertKbArticle,
+  type RecurringTicketTemplate,
+  type InsertRecurringTicketTemplate,
 } from "@shared/schema";
 import { users } from "@shared/models/auth";
 import { db } from "./db";
-import { eq, and, or, ilike, desc, sql, inArray, gte, lte } from "drizzle-orm";
+import { eq, and, or, ilike, desc, asc, sql, inArray, gte, lte } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 
 export interface SearchFilters {
   query?: string;
@@ -73,6 +104,14 @@ export interface SearchFilters {
   dateFrom?: string;
   dateTo?: string;
   uploadedBy?: string;
+}
+
+export interface TicketFilters {
+  status?: string;
+  priority?: string;
+  assignedToId?: string;
+  clientId?: string;
+  query?: string;
 }
 
 export interface AuditFilters {
@@ -144,6 +183,11 @@ export interface IStorage {
     maxClients: number;
     maxEvidence: number;
     recentEvidence: any[];
+    openTickets: number;
+    overdueTickets: number;
+    upcomingAppointments: number;
+    unpaidInvoiceCents: number;
+    unbilledMinutes: number;
   }>;
 
   getClientIdsForUser(userId: string): Promise<string[]>;
@@ -235,6 +279,72 @@ export interface IStorage {
   getAllUsers(): Promise<any[]>;
   deleteTenant(tenantId: string): Promise<void>;
   getPausedTenantsExpiredGrace(graceDays: number): Promise<TenantSubscription[]>;
+
+  // Tickets
+  getNextTicketNumber(tenantId: string): Promise<number>;
+  createTicket(data: InsertTicket): Promise<Ticket>;
+  getTicketsByTenant(tenantId: string, filters?: TicketFilters): Promise<any[]>;
+  getTicketById(tenantId: string, id: string): Promise<any>;
+  updateTicket(tenantId: string, id: string, data: Partial<Omit<Ticket, "id" | "tenantId" | "createdAt">>): Promise<Ticket | undefined>;
+  deleteTicket(tenantId: string, id: string): Promise<void>;
+  deleteTickets(tenantId: string, ids: string[]): Promise<number>;
+
+  // Ticket Comments
+  createTicketComment(data: InsertTicketComment): Promise<TicketComment>;
+  getCommentsByTicket(tenantId: string, ticketId: string): Promise<any[]>;
+  updateTicketComment(tenantId: string, id: string, data: { content?: string; isInternal?: boolean }): Promise<TicketComment | undefined>;
+  deleteTicketComment(tenantId: string, id: string): Promise<void>;
+
+  // SLA Profiles
+  createSlaProfile(data: InsertSlaProfile): Promise<SlaProfile>;
+  getSlaProfilesByTenant(tenantId: string): Promise<SlaProfile[]>;
+  getSlaProfileById(tenantId: string, id: string): Promise<SlaProfile | undefined>;
+  updateSlaProfile(tenantId: string, id: string, data: Partial<Omit<SlaProfile, "id" | "tenantId" | "createdAt">>): Promise<SlaProfile | undefined>;
+  deleteSlaProfile(tenantId: string, id: string): Promise<void>;
+  getDefaultSlaProfile(tenantId: string): Promise<SlaProfile | undefined>;
+
+  createAppointment(data: InsertAppointment): Promise<Appointment>;
+  getAppointmentsByTenant(tenantId: string, filters?: { startDate?: string; endDate?: string; assignedToId?: string }): Promise<any[]>;
+  getAppointmentById(tenantId: string, id: string): Promise<any>;
+  updateAppointment(tenantId: string, id: string, data: Partial<Omit<Appointment, "id" | "tenantId" | "createdAt">>): Promise<Appointment | undefined>;
+  deleteAppointment(tenantId: string, id: string): Promise<void>;
+
+  createTimeEntry(data: InsertTimeEntry): Promise<TimeEntry>;
+  getTimeEntriesByTenant(tenantId: string, filters?: { ticketId?: string; clientId?: string; userId?: string; startDate?: string; endDate?: string; billable?: boolean; uninvoiced?: boolean }): Promise<any[]>;
+  getTimeEntryById(tenantId: string, id: string): Promise<TimeEntry | undefined>;
+  updateTimeEntry(tenantId: string, id: string, data: Partial<Omit<TimeEntry, "id" | "tenantId" | "createdAt">>): Promise<TimeEntry | undefined>;
+  deleteTimeEntry(tenantId: string, id: string): Promise<void>;
+
+  getBillingConfig(tenantId: string): Promise<BillingConfig | undefined>;
+  upsertBillingConfig(tenantId: string, data: Partial<InsertBillingConfig>): Promise<BillingConfig>;
+
+  createInvoice(data: InsertInvoice): Promise<Invoice>;
+  getInvoicesByTenant(tenantId: string, filters?: { status?: string; clientId?: string }): Promise<any[]>;
+  getInvoiceById(tenantId: string, id: string): Promise<any>;
+  getInvoiceByPublicToken(token: string): Promise<any>;
+  updateInvoice(tenantId: string, id: string, data: Partial<Omit<Invoice, "id" | "tenantId" | "createdAt">>): Promise<Invoice | undefined>;
+  deleteInvoice(tenantId: string, id: string): Promise<void>;
+  getNextInvoiceNumber(tenantId: string): Promise<string>;
+
+  createInvoiceLineItem(data: InsertInvoiceLineItem): Promise<InvoiceLineItem>;
+  getLineItemsByInvoice(tenantId: string, invoiceId: string): Promise<InvoiceLineItem[]>;
+  updateInvoiceLineItem(tenantId: string, id: string, data: Partial<Omit<InvoiceLineItem, "id" | "tenantId" | "createdAt">>): Promise<InvoiceLineItem | undefined>;
+  deleteInvoiceLineItem(tenantId: string, id: string): Promise<void>;
+  recalculateInvoiceTotals(tenantId: string, invoiceId: string): Promise<Invoice | undefined>;
+
+  createKbArticle(data: InsertKbArticle): Promise<KbArticle>;
+  getKbArticlesByTenant(tenantId: string, filters?: { category?: string; isPublished?: boolean; query?: string }): Promise<any[]>;
+  getKbArticleById(tenantId: string, id: string): Promise<any>;
+  getKbArticleBySlug(tenantId: string, slug: string): Promise<any>;
+  updateKbArticle(tenantId: string, id: string, data: Partial<Omit<KbArticle, "id" | "tenantId" | "createdAt">>): Promise<KbArticle | undefined>;
+  deleteKbArticle(tenantId: string, id: string): Promise<void>;
+
+  createRecurringTemplate(data: InsertRecurringTicketTemplate): Promise<RecurringTicketTemplate>;
+  getRecurringTemplatesByTenant(tenantId: string): Promise<any[]>;
+  getRecurringTemplateById(tenantId: string, id: string): Promise<RecurringTicketTemplate | undefined>;
+  updateRecurringTemplate(tenantId: string, id: string, data: Partial<Omit<RecurringTicketTemplate, "id" | "tenantId" | "createdAt">>): Promise<RecurringTicketTemplate | undefined>;
+  deleteRecurringTemplate(tenantId: string, id: string): Promise<void>;
+  getDueRecurringTemplates(): Promise<RecurringTicketTemplate[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -742,6 +852,35 @@ export class DatabaseStorage implements IStorage {
 
     const recentEvidence = await this.getRecentEvidence(tenantId, 5);
 
+    const [openTicketCount] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(tickets)
+      .where(and(eq(tickets.tenantId, tenantId), inArray(tickets.status, ["open", "in_progress"])));
+
+    const [overdueTicketCount] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(tickets)
+      .where(and(
+        eq(tickets.tenantId, tenantId),
+        inArray(tickets.status, ["open", "in_progress"]),
+        lte(tickets.slaResolutionDeadline, new Date())
+      ));
+
+    const [upcomingApptCount] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(appointments)
+      .where(and(eq(appointments.tenantId, tenantId), gte(appointments.startTime, new Date())));
+
+    const [unpaidInvoiceSum] = await db
+      .select({ total: sql<number>`coalesce(sum(total_cents - amount_paid_cents), 0)::int` })
+      .from(invoices)
+      .where(and(eq(invoices.tenantId, tenantId), inArray(invoices.status, ["sent", "viewed", "overdue", "partial"])));
+
+    const [unbilledMinutesSum] = await db
+      .select({ total: sql<number>`coalesce(sum(minutes), 0)::int` })
+      .from(timeEntries)
+      .where(and(eq(timeEntries.tenantId, tenantId), eq(timeEntries.billable, true), sql`${timeEntries.invoiceId} IS NULL`));
+
     return {
       totalClients: clientCount.count,
       totalAssets: assetCount.count,
@@ -750,6 +889,11 @@ export class DatabaseStorage implements IStorage {
       maxClients: tenant?.maxClients || 5,
       maxEvidence: tenant?.maxEvidence || 50,
       recentEvidence,
+      openTickets: openTicketCount.count,
+      overdueTickets: overdueTicketCount.count,
+      upcomingAppointments: upcomingApptCount.count,
+      unpaidInvoiceCents: unpaidInvoiceSum.total,
+      unbilledMinutes: unbilledMinutesSum.total,
     };
   }
 
@@ -1324,6 +1468,810 @@ export class DatabaseStorage implements IStorage {
         )
       );
     return results;
+  }
+
+  async getNextTicketNumber(tenantId: string): Promise<number> {
+    const result = await db
+      .select({ maxNum: sql<number>`COALESCE(MAX(${tickets.number}), 0)` })
+      .from(tickets)
+      .where(eq(tickets.tenantId, tenantId));
+    return (result[0]?.maxNum || 0) + 1;
+  }
+
+  async createTicket(data: InsertTicket): Promise<Ticket> {
+    const [ticket] = await db.insert(tickets).values(data).returning();
+    return ticket;
+  }
+
+  async getTicketsByTenant(tenantId: string, filters?: TicketFilters): Promise<any[]> {
+    const assignedUser = alias(users, "assignedUser");
+    const creatorUser = alias(users, "creatorUser");
+
+    let conditions: any[] = [eq(tickets.tenantId, tenantId)];
+
+    if (filters?.status) {
+      conditions.push(eq(tickets.status, filters.status as any));
+    }
+    if (filters?.priority) {
+      conditions.push(eq(tickets.priority, filters.priority as any));
+    }
+    if (filters?.assignedToId) {
+      conditions.push(eq(tickets.assignedToId, filters.assignedToId));
+    }
+    if (filters?.clientId) {
+      conditions.push(eq(tickets.clientId, filters.clientId));
+    }
+    if (filters?.query) {
+      conditions.push(ilike(tickets.title, `%${filters.query}%`));
+    }
+
+    return db
+      .select({
+        id: tickets.id,
+        tenantId: tickets.tenantId,
+        number: tickets.number,
+        title: tickets.title,
+        description: tickets.description,
+        priority: tickets.priority,
+        status: tickets.status,
+        clientId: tickets.clientId,
+        siteId: tickets.siteId,
+        assetId: tickets.assetId,
+        assignedToId: tickets.assignedToId,
+        createdById: tickets.createdById,
+        slaProfileId: tickets.slaProfileId,
+        responseDeadline: tickets.responseDeadline,
+        resolutionDeadline: tickets.resolutionDeadline,
+        respondedAt: tickets.respondedAt,
+        resolvedAt: tickets.resolvedAt,
+        closedAt: tickets.closedAt,
+        createdAt: tickets.createdAt,
+        updatedAt: tickets.updatedAt,
+        clientName: clients.name,
+        siteName: sites.name,
+        assetName: assets.name,
+        assignedToFirstName: assignedUser.firstName,
+        assignedToLastName: assignedUser.lastName,
+        createdByFirstName: creatorUser.firstName,
+        createdByLastName: creatorUser.lastName,
+      })
+      .from(tickets)
+      .leftJoin(clients, eq(tickets.clientId, clients.id))
+      .leftJoin(sites, eq(tickets.siteId, sites.id))
+      .leftJoin(assets, eq(tickets.assetId, assets.id))
+      .leftJoin(assignedUser, eq(tickets.assignedToId, assignedUser.id))
+      .leftJoin(creatorUser, eq(tickets.createdById, creatorUser.id))
+      .where(and(...conditions))
+      .orderBy(desc(tickets.createdAt));
+  }
+
+  async getTicketById(tenantId: string, id: string): Promise<any> {
+    const assignedUser = alias(users, "assignedUser");
+    const creatorUser = alias(users, "creatorUser");
+
+    const [result] = await db
+      .select({
+        id: tickets.id,
+        tenantId: tickets.tenantId,
+        number: tickets.number,
+        title: tickets.title,
+        description: tickets.description,
+        priority: tickets.priority,
+        status: tickets.status,
+        clientId: tickets.clientId,
+        siteId: tickets.siteId,
+        assetId: tickets.assetId,
+        assignedToId: tickets.assignedToId,
+        createdById: tickets.createdById,
+        slaProfileId: tickets.slaProfileId,
+        responseDeadline: tickets.responseDeadline,
+        resolutionDeadline: tickets.resolutionDeadline,
+        respondedAt: tickets.respondedAt,
+        resolvedAt: tickets.resolvedAt,
+        closedAt: tickets.closedAt,
+        createdAt: tickets.createdAt,
+        updatedAt: tickets.updatedAt,
+        clientName: clients.name,
+        siteName: sites.name,
+        assetName: assets.name,
+        assignedToFirstName: assignedUser.firstName,
+        assignedToLastName: assignedUser.lastName,
+        createdByFirstName: creatorUser.firstName,
+        createdByLastName: creatorUser.lastName,
+      })
+      .from(tickets)
+      .leftJoin(clients, eq(tickets.clientId, clients.id))
+      .leftJoin(sites, eq(tickets.siteId, sites.id))
+      .leftJoin(assets, eq(tickets.assetId, assets.id))
+      .leftJoin(assignedUser, eq(tickets.assignedToId, assignedUser.id))
+      .leftJoin(creatorUser, eq(tickets.createdById, creatorUser.id))
+      .where(and(eq(tickets.tenantId, tenantId), eq(tickets.id, id)));
+
+    return result;
+  }
+
+  async updateTicket(tenantId: string, id: string, data: Partial<Omit<Ticket, "id" | "tenantId" | "createdAt">>): Promise<Ticket | undefined> {
+    const [updated] = await db
+      .update(tickets)
+      .set({ ...data, updatedAt: new Date() })
+      .where(and(eq(tickets.tenantId, tenantId), eq(tickets.id, id)))
+      .returning();
+    return updated;
+  }
+
+  async deleteTicket(tenantId: string, id: string): Promise<void> {
+    await db
+      .delete(tickets)
+      .where(and(eq(tickets.tenantId, tenantId), eq(tickets.id, id)));
+  }
+
+  async deleteTickets(tenantId: string, ids: string[]): Promise<number> {
+    if (ids.length === 0) return 0;
+    const result = await db
+      .delete(tickets)
+      .where(and(eq(tickets.tenantId, tenantId), inArray(tickets.id, ids)))
+      .returning({ id: tickets.id });
+    return result.length;
+  }
+
+  async createTicketComment(data: InsertTicketComment): Promise<TicketComment> {
+    const [comment] = await db.insert(ticketComments).values(data).returning();
+    return comment;
+  }
+
+  async getCommentsByTicket(tenantId: string, ticketId: string): Promise<any[]> {
+    return db
+      .select({
+        id: ticketComments.id,
+        tenantId: ticketComments.tenantId,
+        ticketId: ticketComments.ticketId,
+        userId: ticketComments.userId,
+        content: ticketComments.content,
+        isInternal: ticketComments.isInternal,
+        createdAt: ticketComments.createdAt,
+        updatedAt: ticketComments.updatedAt,
+        userFirstName: users.firstName,
+        userLastName: users.lastName,
+        userProfileImageUrl: users.profileImageUrl,
+      })
+      .from(ticketComments)
+      .leftJoin(users, eq(ticketComments.userId, users.id))
+      .where(and(eq(ticketComments.tenantId, tenantId), eq(ticketComments.ticketId, ticketId)))
+      .orderBy(asc(ticketComments.createdAt));
+  }
+
+  async updateTicketComment(tenantId: string, id: string, data: { content?: string; isInternal?: boolean }): Promise<TicketComment | undefined> {
+    const [updated] = await db
+      .update(ticketComments)
+      .set({ ...data, updatedAt: new Date() })
+      .where(and(eq(ticketComments.tenantId, tenantId), eq(ticketComments.id, id)))
+      .returning();
+    return updated;
+  }
+
+  async deleteTicketComment(tenantId: string, id: string): Promise<void> {
+    await db
+      .delete(ticketComments)
+      .where(and(eq(ticketComments.tenantId, tenantId), eq(ticketComments.id, id)));
+  }
+
+  async createSlaProfile(data: InsertSlaProfile): Promise<SlaProfile> {
+    const [profile] = await db.insert(slaProfiles).values(data).returning();
+    return profile;
+  }
+
+  async getSlaProfilesByTenant(tenantId: string): Promise<SlaProfile[]> {
+    return db
+      .select()
+      .from(slaProfiles)
+      .where(eq(slaProfiles.tenantId, tenantId))
+      .orderBy(desc(slaProfiles.createdAt));
+  }
+
+  async getSlaProfileById(tenantId: string, id: string): Promise<SlaProfile | undefined> {
+    const [profile] = await db
+      .select()
+      .from(slaProfiles)
+      .where(and(eq(slaProfiles.tenantId, tenantId), eq(slaProfiles.id, id)));
+    return profile;
+  }
+
+  async updateSlaProfile(tenantId: string, id: string, data: Partial<Omit<SlaProfile, "id" | "tenantId" | "createdAt">>): Promise<SlaProfile | undefined> {
+    const [updated] = await db
+      .update(slaProfiles)
+      .set({ ...data, updatedAt: new Date() })
+      .where(and(eq(slaProfiles.tenantId, tenantId), eq(slaProfiles.id, id)))
+      .returning();
+    return updated;
+  }
+
+  async deleteSlaProfile(tenantId: string, id: string): Promise<void> {
+    await db
+      .delete(slaProfiles)
+      .where(and(eq(slaProfiles.tenantId, tenantId), eq(slaProfiles.id, id)));
+  }
+
+  async getDefaultSlaProfile(tenantId: string): Promise<SlaProfile | undefined> {
+    const [profile] = await db
+      .select()
+      .from(slaProfiles)
+      .where(and(eq(slaProfiles.tenantId, tenantId), eq(slaProfiles.isDefault, true)));
+    return profile;
+  }
+
+  async createAppointment(data: InsertAppointment): Promise<Appointment> {
+    const [appointment] = await db.insert(appointments).values(data).returning();
+    return appointment;
+  }
+
+  async getAppointmentsByTenant(tenantId: string, filters?: { startDate?: string; endDate?: string; assignedToId?: string }): Promise<any[]> {
+    const assignedUser = alias(users, "assignedUser");
+    const creatorUser = alias(users, "creatorUser");
+
+    let conditions: any[] = [eq(appointments.tenantId, tenantId)];
+
+    if (filters?.startDate) {
+      conditions.push(gte(appointments.startTime, new Date(filters.startDate)));
+    }
+    if (filters?.endDate) {
+      conditions.push(lte(appointments.startTime, new Date(filters.endDate)));
+    }
+    if (filters?.assignedToId) {
+      conditions.push(eq(appointments.assignedToId, filters.assignedToId));
+    }
+
+    return db
+      .select({
+        id: appointments.id,
+        tenantId: appointments.tenantId,
+        title: appointments.title,
+        description: appointments.description,
+        startTime: appointments.startTime,
+        endTime: appointments.endTime,
+        ticketId: appointments.ticketId,
+        clientId: appointments.clientId,
+        siteId: appointments.siteId,
+        assignedToId: appointments.assignedToId,
+        createdById: appointments.createdById,
+        createdAt: appointments.createdAt,
+        updatedAt: appointments.updatedAt,
+        clientName: clients.name,
+        assignedToFirstName: assignedUser.firstName,
+        assignedToLastName: assignedUser.lastName,
+        createdByFirstName: creatorUser.firstName,
+        createdByLastName: creatorUser.lastName,
+      })
+      .from(appointments)
+      .leftJoin(clients, eq(appointments.clientId, clients.id))
+      .leftJoin(assignedUser, eq(appointments.assignedToId, assignedUser.id))
+      .leftJoin(creatorUser, eq(appointments.createdById, creatorUser.id))
+      .where(and(...conditions))
+      .orderBy(desc(appointments.startTime));
+  }
+
+  async getAppointmentById(tenantId: string, id: string): Promise<any> {
+    const assignedUser = alias(users, "assignedUser");
+    const creatorUser = alias(users, "creatorUser");
+
+    const [result] = await db
+      .select({
+        id: appointments.id,
+        tenantId: appointments.tenantId,
+        title: appointments.title,
+        description: appointments.description,
+        startTime: appointments.startTime,
+        endTime: appointments.endTime,
+        ticketId: appointments.ticketId,
+        clientId: appointments.clientId,
+        siteId: appointments.siteId,
+        assignedToId: appointments.assignedToId,
+        createdById: appointments.createdById,
+        createdAt: appointments.createdAt,
+        updatedAt: appointments.updatedAt,
+        clientName: clients.name,
+        assignedToFirstName: assignedUser.firstName,
+        assignedToLastName: assignedUser.lastName,
+        createdByFirstName: creatorUser.firstName,
+        createdByLastName: creatorUser.lastName,
+      })
+      .from(appointments)
+      .leftJoin(clients, eq(appointments.clientId, clients.id))
+      .leftJoin(assignedUser, eq(appointments.assignedToId, assignedUser.id))
+      .leftJoin(creatorUser, eq(appointments.createdById, creatorUser.id))
+      .where(and(eq(appointments.tenantId, tenantId), eq(appointments.id, id)));
+
+    return result;
+  }
+
+  async updateAppointment(tenantId: string, id: string, data: Partial<Omit<Appointment, "id" | "tenantId" | "createdAt">>): Promise<Appointment | undefined> {
+    const [updated] = await db
+      .update(appointments)
+      .set({ ...data, updatedAt: new Date() })
+      .where(and(eq(appointments.tenantId, tenantId), eq(appointments.id, id)))
+      .returning();
+    return updated;
+  }
+
+  async deleteAppointment(tenantId: string, id: string): Promise<void> {
+    await db
+      .delete(appointments)
+      .where(and(eq(appointments.tenantId, tenantId), eq(appointments.id, id)));
+  }
+
+  async createTimeEntry(data: InsertTimeEntry): Promise<TimeEntry> {
+    const [entry] = await db.insert(timeEntries).values(data).returning();
+    return entry;
+  }
+
+  async getTimeEntriesByTenant(tenantId: string, filters?: { ticketId?: string; clientId?: string; userId?: string; startDate?: string; endDate?: string; billable?: boolean; uninvoiced?: boolean }): Promise<any[]> {
+    let conditions: any[] = [eq(timeEntries.tenantId, tenantId)];
+
+    if (filters?.ticketId) {
+      conditions.push(eq(timeEntries.ticketId, filters.ticketId));
+    }
+    if (filters?.clientId) {
+      conditions.push(eq(timeEntries.clientId, filters.clientId));
+    }
+    if (filters?.userId) {
+      conditions.push(eq(timeEntries.userId, filters.userId));
+    }
+    if (filters?.startDate) {
+      conditions.push(gte(timeEntries.date, new Date(filters.startDate)));
+    }
+    if (filters?.endDate) {
+      conditions.push(lte(timeEntries.date, new Date(filters.endDate)));
+    }
+    if (filters?.billable !== undefined) {
+      conditions.push(eq(timeEntries.billable, filters.billable));
+    }
+    if (filters?.uninvoiced) {
+      conditions.push(sql`${timeEntries.invoiceId} IS NULL`);
+    }
+
+    return db
+      .select({
+        id: timeEntries.id,
+        tenantId: timeEntries.tenantId,
+        ticketId: timeEntries.ticketId,
+        clientId: timeEntries.clientId,
+        userId: timeEntries.userId,
+        description: timeEntries.description,
+        minutes: timeEntries.minutes,
+        billable: timeEntries.billable,
+        rateOverrideCents: timeEntries.rateOverrideCents,
+        date: timeEntries.date,
+        invoiceId: timeEntries.invoiceId,
+        createdAt: timeEntries.createdAt,
+        updatedAt: timeEntries.updatedAt,
+        userFirstName: users.firstName,
+        userLastName: users.lastName,
+        ticketTitle: tickets.title,
+        ticketNumber: tickets.number,
+        clientName: clients.name,
+      })
+      .from(timeEntries)
+      .leftJoin(users, eq(timeEntries.userId, users.id))
+      .leftJoin(tickets, eq(timeEntries.ticketId, tickets.id))
+      .leftJoin(clients, eq(timeEntries.clientId, clients.id))
+      .where(and(...conditions))
+      .orderBy(desc(timeEntries.date));
+  }
+
+  async getTimeEntryById(tenantId: string, id: string): Promise<TimeEntry | undefined> {
+    const [entry] = await db
+      .select()
+      .from(timeEntries)
+      .where(and(eq(timeEntries.tenantId, tenantId), eq(timeEntries.id, id)));
+    return entry;
+  }
+
+  async updateTimeEntry(tenantId: string, id: string, data: Partial<Omit<TimeEntry, "id" | "tenantId" | "createdAt">>): Promise<TimeEntry | undefined> {
+    const [updated] = await db
+      .update(timeEntries)
+      .set({ ...data, updatedAt: new Date() })
+      .where(and(eq(timeEntries.tenantId, tenantId), eq(timeEntries.id, id)))
+      .returning();
+    return updated;
+  }
+
+  async deleteTimeEntry(tenantId: string, id: string): Promise<void> {
+    await db
+      .delete(timeEntries)
+      .where(and(eq(timeEntries.tenantId, tenantId), eq(timeEntries.id, id)));
+  }
+
+  async getBillingConfig(tenantId: string): Promise<BillingConfig | undefined> {
+    const [config] = await db
+      .select()
+      .from(billingConfigs)
+      .where(eq(billingConfigs.tenantId, tenantId));
+    return config;
+  }
+
+  async upsertBillingConfig(tenantId: string, data: Partial<InsertBillingConfig>): Promise<BillingConfig> {
+    const existing = await this.getBillingConfig(tenantId);
+    if (existing) {
+      const [updated] = await db
+        .update(billingConfigs)
+        .set({ ...data, updatedAt: new Date() })
+        .where(eq(billingConfigs.tenantId, tenantId))
+        .returning();
+      return updated;
+    }
+    const [created] = await db
+      .insert(billingConfigs)
+      .values({ tenantId, ...data })
+      .returning();
+    return created;
+  }
+
+  async createInvoice(data: InsertInvoice): Promise<Invoice> {
+    const [invoice] = await db.insert(invoices).values(data).returning();
+    return invoice;
+  }
+
+  async getInvoicesByTenant(tenantId: string, filters?: { status?: string; clientId?: string }): Promise<any[]> {
+    let conditions: any[] = [eq(invoices.tenantId, tenantId)];
+
+    if (filters?.status) {
+      conditions.push(eq(invoices.status, filters.status as any));
+    }
+    if (filters?.clientId) {
+      conditions.push(eq(invoices.clientId, filters.clientId));
+    }
+
+    return db
+      .select({
+        id: invoices.id,
+        tenantId: invoices.tenantId,
+        clientId: invoices.clientId,
+        invoiceNumber: invoices.invoiceNumber,
+        status: invoices.status,
+        issuedAt: invoices.issuedAt,
+        dueAt: invoices.dueAt,
+        paidAt: invoices.paidAt,
+        subtotalCents: invoices.subtotalCents,
+        taxCents: invoices.taxCents,
+        totalCents: invoices.totalCents,
+        amountPaidCents: invoices.amountPaidCents,
+        currency: invoices.currency,
+        notes: invoices.notes,
+        publicToken: invoices.publicToken,
+        createdAt: invoices.createdAt,
+        updatedAt: invoices.updatedAt,
+        clientName: clients.name,
+        clientEmail: clients.email,
+      })
+      .from(invoices)
+      .leftJoin(clients, eq(invoices.clientId, clients.id))
+      .where(and(...conditions))
+      .orderBy(desc(invoices.createdAt));
+  }
+
+  async getInvoiceById(tenantId: string, id: string): Promise<any> {
+    const [invoice] = await db
+      .select({
+        id: invoices.id,
+        tenantId: invoices.tenantId,
+        clientId: invoices.clientId,
+        invoiceNumber: invoices.invoiceNumber,
+        status: invoices.status,
+        issuedAt: invoices.issuedAt,
+        dueAt: invoices.dueAt,
+        paidAt: invoices.paidAt,
+        subtotalCents: invoices.subtotalCents,
+        taxCents: invoices.taxCents,
+        totalCents: invoices.totalCents,
+        amountPaidCents: invoices.amountPaidCents,
+        currency: invoices.currency,
+        notes: invoices.notes,
+        publicToken: invoices.publicToken,
+        createdAt: invoices.createdAt,
+        updatedAt: invoices.updatedAt,
+        clientName: clients.name,
+        clientEmail: clients.email,
+      })
+      .from(invoices)
+      .leftJoin(clients, eq(invoices.clientId, clients.id))
+      .where(and(eq(invoices.tenantId, tenantId), eq(invoices.id, id)));
+
+    if (!invoice) return undefined;
+
+    const lineItems = await db
+      .select()
+      .from(invoiceLineItems)
+      .where(and(eq(invoiceLineItems.tenantId, tenantId), eq(invoiceLineItems.invoiceId, id)))
+      .orderBy(asc(invoiceLineItems.sortOrder));
+
+    return { ...invoice, lineItems };
+  }
+
+  async getInvoiceByPublicToken(token: string): Promise<any> {
+    const [invoice] = await db
+      .select({
+        id: invoices.id,
+        tenantId: invoices.tenantId,
+        clientId: invoices.clientId,
+        invoiceNumber: invoices.invoiceNumber,
+        status: invoices.status,
+        issuedAt: invoices.issuedAt,
+        dueAt: invoices.dueAt,
+        paidAt: invoices.paidAt,
+        subtotalCents: invoices.subtotalCents,
+        taxCents: invoices.taxCents,
+        totalCents: invoices.totalCents,
+        amountPaidCents: invoices.amountPaidCents,
+        currency: invoices.currency,
+        notes: invoices.notes,
+        publicToken: invoices.publicToken,
+        createdAt: invoices.createdAt,
+        updatedAt: invoices.updatedAt,
+        clientName: clients.name,
+        clientEmail: clients.email,
+        clientCompany: clients.company,
+      })
+      .from(invoices)
+      .leftJoin(clients, eq(invoices.clientId, clients.id))
+      .where(eq(invoices.publicToken, token));
+
+    if (!invoice) return undefined;
+
+    const lineItems = await db
+      .select()
+      .from(invoiceLineItems)
+      .where(eq(invoiceLineItems.invoiceId, invoice.id))
+      .orderBy(asc(invoiceLineItems.sortOrder));
+
+    const billingConfig = await this.getBillingConfig(invoice.tenantId);
+
+    return { ...invoice, lineItems, billingConfig };
+  }
+
+  async updateInvoice(tenantId: string, id: string, data: Partial<Omit<Invoice, "id" | "tenantId" | "createdAt">>): Promise<Invoice | undefined> {
+    const [updated] = await db
+      .update(invoices)
+      .set({ ...data, updatedAt: new Date() })
+      .where(and(eq(invoices.tenantId, tenantId), eq(invoices.id, id)))
+      .returning();
+    return updated;
+  }
+
+  async deleteInvoice(tenantId: string, id: string): Promise<void> {
+    await db
+      .delete(invoices)
+      .where(and(eq(invoices.tenantId, tenantId), eq(invoices.id, id)));
+  }
+
+  async getNextInvoiceNumber(tenantId: string): Promise<string> {
+    const config = await this.getBillingConfig(tenantId);
+    const prefix = config?.invoicePrefix || "INV";
+    const nextNum = config?.invoiceNextNumber || 1001;
+
+    if (config) {
+      await db
+        .update(billingConfigs)
+        .set({ invoiceNextNumber: nextNum + 1, updatedAt: new Date() })
+        .where(eq(billingConfigs.tenantId, tenantId));
+    }
+
+    return `${prefix}-${String(nextNum).padStart(4, "0")}`;
+  }
+
+  async createInvoiceLineItem(data: InsertInvoiceLineItem): Promise<InvoiceLineItem> {
+    const [item] = await db.insert(invoiceLineItems).values(data).returning();
+    return item;
+  }
+
+  async getLineItemsByInvoice(tenantId: string, invoiceId: string): Promise<InvoiceLineItem[]> {
+    return db
+      .select()
+      .from(invoiceLineItems)
+      .where(and(eq(invoiceLineItems.tenantId, tenantId), eq(invoiceLineItems.invoiceId, invoiceId)))
+      .orderBy(asc(invoiceLineItems.sortOrder));
+  }
+
+  async updateInvoiceLineItem(tenantId: string, id: string, data: Partial<Omit<InvoiceLineItem, "id" | "tenantId" | "createdAt">>): Promise<InvoiceLineItem | undefined> {
+    const [updated] = await db
+      .update(invoiceLineItems)
+      .set(data)
+      .where(and(eq(invoiceLineItems.tenantId, tenantId), eq(invoiceLineItems.id, id)))
+      .returning();
+    return updated;
+  }
+
+  async deleteInvoiceLineItem(tenantId: string, id: string): Promise<void> {
+    await db
+      .delete(invoiceLineItems)
+      .where(and(eq(invoiceLineItems.tenantId, tenantId), eq(invoiceLineItems.id, id)));
+  }
+
+  async recalculateInvoiceTotals(tenantId: string, invoiceId: string): Promise<Invoice | undefined> {
+    const items = await this.getLineItemsByInvoice(tenantId, invoiceId);
+    const subtotalCents = items.reduce((sum, item) => sum + item.totalCents, 0);
+
+    const [updated] = await db
+      .update(invoices)
+      .set({ subtotalCents, totalCents: subtotalCents, updatedAt: new Date() })
+      .where(and(eq(invoices.tenantId, tenantId), eq(invoices.id, invoiceId)))
+      .returning();
+    return updated;
+  }
+
+  async createKbArticle(data: InsertKbArticle): Promise<KbArticle> {
+    const [article] = await db.insert(kbArticles).values(data).returning();
+    return article;
+  }
+
+  async getKbArticlesByTenant(tenantId: string, filters?: { category?: string; isPublished?: boolean; query?: string }): Promise<any[]> {
+    const authorUser = alias(users, "authorUser");
+
+    let conditions: any[] = [eq(kbArticles.tenantId, tenantId)];
+
+    if (filters?.category) {
+      conditions.push(eq(kbArticles.category, filters.category));
+    }
+    if (filters?.isPublished !== undefined) {
+      conditions.push(eq(kbArticles.isPublished, filters.isPublished));
+    }
+    if (filters?.query) {
+      conditions.push(ilike(kbArticles.title, `%${filters.query}%`));
+    }
+
+    return db
+      .select({
+        id: kbArticles.id,
+        tenantId: kbArticles.tenantId,
+        title: kbArticles.title,
+        slug: kbArticles.slug,
+        content: kbArticles.content,
+        category: kbArticles.category,
+        isPublished: kbArticles.isPublished,
+        authorId: kbArticles.authorId,
+        createdAt: kbArticles.createdAt,
+        updatedAt: kbArticles.updatedAt,
+        authorFirstName: authorUser.firstName,
+        authorLastName: authorUser.lastName,
+      })
+      .from(kbArticles)
+      .leftJoin(authorUser, eq(kbArticles.authorId, authorUser.id))
+      .where(and(...conditions))
+      .orderBy(desc(kbArticles.updatedAt));
+  }
+
+  async getKbArticleById(tenantId: string, id: string): Promise<any> {
+    const authorUser = alias(users, "authorUser");
+
+    const [result] = await db
+      .select({
+        id: kbArticles.id,
+        tenantId: kbArticles.tenantId,
+        title: kbArticles.title,
+        slug: kbArticles.slug,
+        content: kbArticles.content,
+        category: kbArticles.category,
+        isPublished: kbArticles.isPublished,
+        authorId: kbArticles.authorId,
+        createdAt: kbArticles.createdAt,
+        updatedAt: kbArticles.updatedAt,
+        authorFirstName: authorUser.firstName,
+        authorLastName: authorUser.lastName,
+      })
+      .from(kbArticles)
+      .leftJoin(authorUser, eq(kbArticles.authorId, authorUser.id))
+      .where(and(eq(kbArticles.tenantId, tenantId), eq(kbArticles.id, id)));
+
+    return result;
+  }
+
+  async getKbArticleBySlug(tenantId: string, slug: string): Promise<any> {
+    const authorUser = alias(users, "authorUser");
+
+    const [result] = await db
+      .select({
+        id: kbArticles.id,
+        tenantId: kbArticles.tenantId,
+        title: kbArticles.title,
+        slug: kbArticles.slug,
+        content: kbArticles.content,
+        category: kbArticles.category,
+        isPublished: kbArticles.isPublished,
+        authorId: kbArticles.authorId,
+        createdAt: kbArticles.createdAt,
+        updatedAt: kbArticles.updatedAt,
+        authorFirstName: authorUser.firstName,
+        authorLastName: authorUser.lastName,
+      })
+      .from(kbArticles)
+      .leftJoin(authorUser, eq(kbArticles.authorId, authorUser.id))
+      .where(and(eq(kbArticles.tenantId, tenantId), eq(kbArticles.slug, slug)));
+
+    return result;
+  }
+
+  async updateKbArticle(tenantId: string, id: string, data: Partial<Omit<KbArticle, "id" | "tenantId" | "createdAt">>): Promise<KbArticle | undefined> {
+    const [updated] = await db
+      .update(kbArticles)
+      .set({ ...data, updatedAt: new Date() })
+      .where(and(eq(kbArticles.tenantId, tenantId), eq(kbArticles.id, id)))
+      .returning();
+    return updated;
+  }
+
+  async deleteKbArticle(tenantId: string, id: string): Promise<void> {
+    await db
+      .delete(kbArticles)
+      .where(and(eq(kbArticles.tenantId, tenantId), eq(kbArticles.id, id)));
+  }
+
+  async createRecurringTemplate(data: InsertRecurringTicketTemplate): Promise<RecurringTicketTemplate> {
+    const [template] = await db.insert(recurringTicketTemplates).values(data).returning();
+    return template;
+  }
+
+  async getRecurringTemplatesByTenant(tenantId: string): Promise<any[]> {
+    const assignedUser = alias(users, "assignedUser");
+
+    return db
+      .select({
+        id: recurringTicketTemplates.id,
+        tenantId: recurringTicketTemplates.tenantId,
+        title: recurringTicketTemplates.title,
+        description: recurringTicketTemplates.description,
+        priority: recurringTicketTemplates.priority,
+        clientId: recurringTicketTemplates.clientId,
+        siteId: recurringTicketTemplates.siteId,
+        assetId: recurringTicketTemplates.assetId,
+        assignedToId: recurringTicketTemplates.assignedToId,
+        cronExpression: recurringTicketTemplates.cronExpression,
+        enabled: recurringTicketTemplates.enabled,
+        lastGeneratedAt: recurringTicketTemplates.lastGeneratedAt,
+        nextRunAt: recurringTicketTemplates.nextRunAt,
+        createdAt: recurringTicketTemplates.createdAt,
+        updatedAt: recurringTicketTemplates.updatedAt,
+        clientName: clients.name,
+        assignedToFirstName: assignedUser.firstName,
+        assignedToLastName: assignedUser.lastName,
+      })
+      .from(recurringTicketTemplates)
+      .leftJoin(clients, eq(recurringTicketTemplates.clientId, clients.id))
+      .leftJoin(assignedUser, eq(recurringTicketTemplates.assignedToId, assignedUser.id))
+      .where(eq(recurringTicketTemplates.tenantId, tenantId))
+      .orderBy(desc(recurringTicketTemplates.createdAt));
+  }
+
+  async getRecurringTemplateById(tenantId: string, id: string): Promise<RecurringTicketTemplate | undefined> {
+    const [template] = await db
+      .select()
+      .from(recurringTicketTemplates)
+      .where(and(eq(recurringTicketTemplates.tenantId, tenantId), eq(recurringTicketTemplates.id, id)));
+    return template;
+  }
+
+  async updateRecurringTemplate(tenantId: string, id: string, data: Partial<Omit<RecurringTicketTemplate, "id" | "tenantId" | "createdAt">>): Promise<RecurringTicketTemplate | undefined> {
+    const [updated] = await db
+      .update(recurringTicketTemplates)
+      .set({ ...data, updatedAt: new Date() })
+      .where(and(eq(recurringTicketTemplates.tenantId, tenantId), eq(recurringTicketTemplates.id, id)))
+      .returning();
+    return updated;
+  }
+
+  async deleteRecurringTemplate(tenantId: string, id: string): Promise<void> {
+    await db
+      .delete(recurringTicketTemplates)
+      .where(and(eq(recurringTicketTemplates.tenantId, tenantId), eq(recurringTicketTemplates.id, id)));
+  }
+
+  async getDueRecurringTemplates(): Promise<RecurringTicketTemplate[]> {
+    return db
+      .select()
+      .from(recurringTicketTemplates)
+      .where(
+        and(
+          eq(recurringTicketTemplates.enabled, true),
+          lte(recurringTicketTemplates.nextRunAt, new Date())
+        )
+      );
   }
 }
 

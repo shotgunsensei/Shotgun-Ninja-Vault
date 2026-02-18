@@ -16,6 +16,13 @@ import {
   Home,
   CreditCard,
   ShieldCheck,
+  TicketIcon,
+  CalendarDays,
+  Clock,
+  Receipt,
+  BookOpen,
+  Repeat,
+  Wrench,
 } from "lucide-react";
 import logoImage from "@assets/ShotgunNinjaVaulticon_1770412982737.png";
 import { useLocation, Link } from "wouter";
@@ -59,6 +66,8 @@ export function AppSidebar({ role, isSystemAdmin = false, isPaused = false }: Ap
   const portalNavItems = isClient && !isPaused
     ? [
         { title: "Portal", url: "/portal", icon: Home, show: true },
+        { title: "My Tickets", url: "/portal/tickets", icon: TicketIcon, show: true },
+        { title: "My Invoices", url: "/portal/invoices", icon: Receipt, show: true },
         { title: "My Evidence", url: "/portal/evidence", icon: FileText, show: true },
       ].filter((item) => item.show)
     : [];
@@ -71,10 +80,14 @@ export function AppSidebar({ role, isSystemAdmin = false, isPaused = false }: Ap
       ? []
       : [
           { title: "Dashboard", url: "/", icon: LayoutDashboard, show: true },
+          { title: "Tickets", url: "/tickets", icon: TicketIcon, show: true },
+          { title: "Calendar", url: "/calendar", icon: CalendarDays, show: true },
+          { title: "Time Tracking", url: "/time", icon: Clock, show: true },
           { title: "Clients", url: "/clients", icon: Users, show: true },
           { title: "Sites", url: "/sites", icon: MapPin, show: true },
           { title: "Assets", url: "/assets", icon: Server, show: true },
           { title: "Evidence", url: "/evidence", icon: FileText, show: true },
+          { title: "Knowledge Base", url: "/kb", icon: BookOpen, show: true },
           { title: "Reports", url: "/reports", icon: ClipboardList, show: true },
         ].filter((item) => item.show);
 
@@ -88,6 +101,9 @@ export function AppSidebar({ role, isSystemAdmin = false, isPaused = false }: Ap
         { title: "Billing", url: "/billing", icon: CreditCard, show: isAdminOrOwner },
       ].filter((item) => item.show)
     : [
+        { title: "Invoices", url: "/invoices", icon: Receipt, show: isAdminOrOwner },
+        { title: "Billing Settings", url: "/billing-settings", icon: Wrench, show: isAdminOrOwner },
+        { title: "Recurring Tickets", url: "/recurring-tickets", icon: Repeat, show: isAdminOrOwner },
         { title: "Status", url: "/status-admin", icon: Activity, show: isAdminOrOwner },
         { title: "Webhooks", url: "/webhooks", icon: Webhook, show: isAdminOrOwner },
         { title: "Team", url: "/team", icon: Building2, show: isAdminOrOwner },

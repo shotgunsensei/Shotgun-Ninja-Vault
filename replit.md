@@ -88,6 +88,49 @@ The application follows a modular architecture.
 - **Audit**: All imported records emit domain events with `source: "csv_import"` metadata
 - **UI**: Import dialog on Clients, Sites, and Assets pages with template download and file upload
 
+### Ticketing System
+- **Schema**: tickets (id, tenantId, title, description, status, priority, clientId, siteId, assetId, assignedToId, createdById, slaProfileId, slaResponseDeadline, slaResolutionDeadline, respondedAt, resolvedAt, closedAt, createdAt, updatedAt), ticketComments (id, tenantId, ticketId, userId, content, isInternal, createdAt, updatedAt)
+- **SLA Profiles**: sla_profiles table with per-priority response/resolution minutes, default profile support
+- **Routes**: server/modules/tickets/routes.ts - full CRUD for tickets/comments/SLA profiles
+- **UI**: /tickets (list with filters), /tickets/:id (detail with inline edit, comments, SLA status indicators)
+- **SLA Status**: breached (past deadline), at_risk (<1hr), on_track (>1hr), met (resolved before deadline)
+
+### Dispatch Calendar
+- **Schema**: appointments (id, tenantId, title, description, startTime, endTime, ticketId, clientId, siteId, assignedToId, createdById, createdAt, updatedAt)
+- **Routes**: server/modules/calendar/routes.ts - CRUD with date range filtering
+- **UI**: /calendar - weekly grid view with time slots, appointment blocks, create/edit dialogs
+
+### Time Tracking
+- **Schema**: time_entries (id, tenantId, ticketId, clientId, userId, description, minutes, billable, rateOverrideCents, date, invoiceId, createdAt, updatedAt)
+- **Routes**: server/modules/time/routes.ts - CRUD with multi-filter support
+- **UI**: /time - table view with filters, log time dialog, hours summary
+
+### Invoicing System
+- **Schema**: billing_configs (company info, rates, invoice prefix/numbering, payment terms), invoices (id, tenantId, clientId, invoiceNumber, status, dates, amounts, publicToken), invoice_line_items (description, quantity, unitPriceCents, totalCents, timeEntryId)
+- **Invoice Status**: draft, sent, viewed, paid, partial, overdue, cancelled
+- **Routes**: server/modules/invoicing/routes.ts - billing config, invoice CRUD, line items, send/mark-paid, public view
+- **UI**: /invoices (list), /invoices/:id (detail with line items), /billing-settings (config)
+- **Public View**: GET /api/public/invoices/:token - shareable invoice link
+
+### Knowledge Base
+- **Schema**: kb_articles (id, tenantId, title, slug, content, category, isPublished, authorId, createdAt, updatedAt)
+- **Routes**: server/modules/kb/routes.ts - CRUD with category/search filtering
+- **UI**: /kb (article list), /kb/:id (article detail/editor with publish toggle)
+
+### Recurring Ticket Templates
+- **Schema**: recurring_ticket_templates (id, tenantId, title, description, priority, clientId, siteId, assetId, assignedToId, cronExpression, enabled, lastGeneratedAt, nextRunAt, createdAt, updatedAt)
+- **Routes**: server/modules/recurring/routes.ts - CRUD with cron scheduling
+- **UI**: /recurring-tickets - template management with enable/disable toggle
+
+### Client Portal Extensions
+- **Portal Tickets**: GET/POST /api/portal/tickets, GET/POST /api/portal/tickets/:id/comments
+- **Portal Invoices**: GET /api/portal/invoices, GET /api/portal/invoices/:id
+- **UI**: /portal/tickets (submit tickets, view comments), /portal/invoices (view sent invoices)
+
+### Dashboard Widgets
+- **Stats**: Open tickets, overdue tickets, upcoming appointments, unpaid invoice total, unbilled time
+- **Alerts**: Overdue ticket warning banner with SLA breach count
+
 ## External Dependencies
 - **PostgreSQL**: Primary database for all application data.
 - **Replit Auth (OIDC)**: Used for user authentication.
