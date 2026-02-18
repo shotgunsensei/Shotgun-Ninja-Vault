@@ -144,6 +144,8 @@ export default function CalendarPage() {
   const createMutation = useMutation({
     mutationFn: async (data: AppointmentForm) => {
       const body: any = { ...data };
+      if (body.startTime) body.startTime = new Date(body.startTime).toISOString();
+      if (body.endTime) body.endTime = new Date(body.endTime).toISOString();
       if (!body.clientId) delete body.clientId;
       if (!body.siteId) delete body.siteId;
       if (!body.ticketId) delete body.ticketId;
@@ -164,6 +166,8 @@ export default function CalendarPage() {
   const updateMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: AppointmentForm }) => {
       const body: any = { ...data };
+      if (body.startTime) body.startTime = new Date(body.startTime).toISOString();
+      if (body.endTime) body.endTime = new Date(body.endTime).toISOString();
       if (!body.clientId) delete body.clientId;
       if (!body.siteId) delete body.siteId;
       if (!body.ticketId) delete body.ticketId;

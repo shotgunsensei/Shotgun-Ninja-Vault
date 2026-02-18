@@ -863,7 +863,7 @@ export class DatabaseStorage implements IStorage {
       .where(and(
         eq(tickets.tenantId, tenantId),
         inArray(tickets.status, ["open", "in_progress"]),
-        lte(tickets.slaResolutionDeadline, new Date())
+        lte(tickets.resolutionDeadline, new Date())
       ));
 
     const [upcomingApptCount] = await db
