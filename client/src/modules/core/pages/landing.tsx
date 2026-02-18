@@ -2,7 +2,7 @@ import { Shield, FileText, Users, Lock, ArrowRight, Database } from "lucide-reac
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { ThemeToggle } from "@/components/theme-toggle";
-import heroImage from "@assets/Shotgun_ninja_vault_hero_1770412982737.png";
+import heroImage from "@assets/techdeckhero_1771446566988.png";
 import logoImage from "@assets/ShotgunNinjaVaulticon_1770412982737.png";
 
 const features = [
@@ -65,22 +65,13 @@ export default function LandingPage() {
             className="absolute inset-0 bg-cover bg-center bg-no-repeat"
             style={{ backgroundImage: `url(${heroImage})` }}
           />
-          <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/60 to-black/80" />
-          <div className="relative z-10 py-28 sm:py-36 px-6">
-            <div className="max-w-3xl mx-auto text-center">
-              <div className="inline-flex items-center gap-1.5 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 px-3 py-1 text-xs font-medium text-white/90 mb-6">
-                <Shield className="w-3 h-3" />
-                MSP Management Platform
-              </div>
-              <h1 className="text-4xl sm:text-5xl font-bold tracking-tight mb-4 leading-tight text-white">
-                Your MSP operations,
-                <br />
-                <span className="text-blue-400">all in one place.</span>
-              </h1>
-              <p className="text-lg text-white/70 max-w-xl mx-auto mb-8">
-                A multi-tenant platform for MSPs, IT teams, and consultants to
-                manage tickets, track time, send invoices, and store evidence -
-                all in one place.
+          <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-transparent to-black/70" />
+          <div className="relative z-10 flex flex-col min-h-[480px] sm:min-h-[540px] px-6">
+            <div className="flex-1" />
+            <div className="max-w-3xl mx-auto text-center pb-10 sm:pb-14">
+              <p className="text-sm sm:text-base text-white/80 max-w-xl mx-auto mb-6 drop-shadow-lg">
+                The multi-tenant platform for MSPs, IT teams, and consultants to
+                manage tickets, track time, send invoices, and store evidence.
               </p>
               <div className="flex flex-wrap items-center justify-center gap-3">
                 <Button size="lg" asChild data-testid="button-get-started">
@@ -93,7 +84,7 @@ export default function LandingPage() {
                   <a href="#features">Learn More</a>
                 </Button>
               </div>
-              <div className="flex items-center justify-center gap-4 mt-6 text-xs text-white/50">
+              <div className="flex items-center justify-center gap-4 mt-5 text-xs text-white/50">
                 <span>Free plan available</span>
                 <span className="w-1 h-1 rounded-full bg-white/30" />
                 <span>No credit card required</span>
