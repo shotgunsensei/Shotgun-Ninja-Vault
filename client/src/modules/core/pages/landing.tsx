@@ -145,7 +145,7 @@ export default function LandingPage() {
           <div className="flex items-center gap-3">
             <a href="/privacy" className="hover:text-foreground transition-colors">Privacy Policy</a>
             <span className="w-1 h-1 rounded-full bg-muted-foreground/30" />
-            <span>MSP management platform</span>
+            <a href="/delete-account" className="hover:text-foreground transition-colors">Delete Account</a>
           </div>
         </div>
       </footer>

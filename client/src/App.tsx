@@ -60,6 +60,7 @@ import {
 import NotFound from "@/pages/not-found";
 import PrivacyPage from "@/pages/privacy";
 import ReviewerLoginPage from "@/pages/reviewer-login";
+import DeleteAccountPage from "@/pages/delete-account";
 
 import type { TenantWithMember } from "@/lib/types";
 
@@ -210,6 +211,7 @@ function AppRouter() {
       <Route path="/status/:slug" component={PublicStatusPage} />
       <Route path="/privacy" component={PrivacyPage} />
       <Route path="/login" component={ReviewerLoginPage} />
+      <Route path="/delete-account" component={DeleteAccountPage} />
       <Route>
         {() => {
           if (isLoading) {

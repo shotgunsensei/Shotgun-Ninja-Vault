@@ -144,7 +144,18 @@ export default function PrivacyPage() {
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold mb-2">11. Contact Us</h2>
+            <h2 className="text-lg font-semibold mb-2">11. Account Deletion</h2>
+            <p>
+              You can delete your account and all associated data at any time by visiting
+              the <a href="/delete-account" className="text-primary underline underline-offset-2 hover:text-primary/80">account deletion page</a>.
+              Upon deletion, your user profile, login credentials, and any organizations
+              where you are the sole member will be permanently and irreversibly removed,
+              along with all associated data.
+            </p>
+          </section>
+
+          <section>
+            <h2 className="text-lg font-semibold mb-2">12. Contact Us</h2>
             <p>
               If you have questions or concerns about this Privacy Policy or our data practices,
               please contact us through the Service's support channels.
