@@ -58,6 +58,7 @@ import {
 } from "@/modules/mobile";
 
 import NotFound from "@/pages/not-found";
+import PrivacyPage from "@/pages/privacy";
 
 import type { TenantWithMember } from "@/lib/types";
 
@@ -206,6 +207,7 @@ function AppRouter() {
   return (
     <Switch>
       <Route path="/status/:slug" component={PublicStatusPage} />
+      <Route path="/privacy" component={PrivacyPage} />
       <Route>
         {() => {
           if (isLoading) {

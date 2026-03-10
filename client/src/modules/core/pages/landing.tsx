@@ -142,7 +142,11 @@ export default function LandingPage() {
       <footer className="border-t py-6 px-6">
         <div className="max-w-6xl mx-auto flex flex-wrap items-center justify-between gap-4 text-xs text-muted-foreground">
           <span>&copy; {new Date().getFullYear()} Tech Deck</span>
-          <span>MSP management platform - from tickets to invoices and everything in-between</span>
+          <div className="flex items-center gap-3">
+            <a href="/privacy" className="hover:text-foreground transition-colors">Privacy Policy</a>
+            <span className="w-1 h-1 rounded-full bg-muted-foreground/30" />
+            <span>MSP management platform</span>
+          </div>
         </div>
       </footer>
     </div>
