@@ -1,4 +1,4 @@
-import { Switch, Route, Redirect } from "wouter";
+import { Switch, Route, Redirect, useLocation } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider, useQuery } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -49,6 +49,13 @@ import { TimeEntriesPage } from "@/modules/time";
 import { BillingSettingsPage, InvoicesPage, InvoiceDetailPage } from "@/modules/invoicing";
 import { KbListPage, KbArticlePage } from "@/modules/kb";
 import { RecurringTemplatesPage } from "@/modules/recurring";
+import {
+  MobileLayout,
+  MobileTicketsPage,
+  MobileTicketDetailPage,
+  MobileTimePage,
+  MobileCalendarPage,
+} from "@/modules/mobile";
 
 import NotFound from "@/pages/not-found";
 
@@ -74,6 +81,7 @@ function AuthenticatedApp() {
     refetchInterval: 60000,
   });
 
+  const [location] = useLocation();
   const isSystemAdmin = adminCheck?.isSystemAdmin === true;
   const isPaused = pauseStatus?.paused === true;
 
@@ -101,6 +109,21 @@ function AuthenticatedApp() {
     "--sidebar-width": "16rem",
     "--sidebar-width-icon": "3rem",
   };
+
+  if (location.startsWith("/m") && !isClient) {
+    return (
+      <MobileLayout>
+        <Switch>
+          <Route path="/m">{() => <MobileTicketsPage />}</Route>
+          <Route path="/m/tickets" component={MobileTicketsPage} />
+          <Route path="/m/tickets/:id" component={MobileTicketDetailPage} />
+          <Route path="/m/time" component={MobileTimePage} />
+          <Route path="/m/calendar" component={MobileCalendarPage} />
+          <Route>{() => <MobileTicketsPage />}</Route>
+        </Switch>
+      </MobileLayout>
+    );
+  }
 
   return (
     <SidebarProvider style={style as React.CSSProperties}>
