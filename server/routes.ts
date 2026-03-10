@@ -17,6 +17,7 @@ import { registerTimeRoutes } from "./modules/time/routes";
 import { registerInvoicingRoutes } from "./modules/invoicing/routes";
 import { registerKbRoutes } from "./modules/kb/routes";
 import { registerRecurringRoutes } from "./modules/recurring/routes";
+import { registerReviewerRoutes } from "./modules/reviewer/routes";
 import { registerAuditSubscriber } from "./core/events/subscribers";
 import { startWebhookWorker } from "./modules/webhooks/worker";
 import { startGraceCleanupJob } from "./core/billing/graceCleanup";
@@ -145,6 +146,7 @@ export async function registerRoutes(
 
     await setupAuth(app);
     registerAuthRoutes(app);
+    registerReviewerRoutes(app);
 
     registerCoreRoutes(app);
     registerEvidenceRoutes(app);

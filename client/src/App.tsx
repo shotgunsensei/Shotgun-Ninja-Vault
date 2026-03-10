@@ -59,6 +59,7 @@ import {
 
 import NotFound from "@/pages/not-found";
 import PrivacyPage from "@/pages/privacy";
+import ReviewerLoginPage from "@/pages/reviewer-login";
 
 import type { TenantWithMember } from "@/lib/types";
 
@@ -208,6 +209,7 @@ function AppRouter() {
     <Switch>
       <Route path="/status/:slug" component={PublicStatusPage} />
       <Route path="/privacy" component={PrivacyPage} />
+      <Route path="/login" component={ReviewerLoginPage} />
       <Route>
         {() => {
           if (isLoading) {
