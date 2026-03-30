@@ -17,7 +17,6 @@ const MAX_HISTORY_MSG_LENGTH = 8000;
 const querySchema = z.object({
   query: z.string().min(1).max(MAX_QUERY_LENGTH),
   mode: z.enum(["quick-fix", "script-builder", "deep-dive", "network", "system-design"]).default("quick-fix"),
-  beginnerMode: z.boolean().default(false),
   history: z.array(
     z.object({
       role: z.enum(["user", "assistant"]),
@@ -50,10 +49,10 @@ RULES:
 - Never repeat yourself across sections
 - Never use filler phrases like "Sure!", "Great question!", "Let me help you"
 - Be direct, technical, and precise
-- Default to expert-level explanations
-- If the user enables Beginner Mode, add brief explanations after each command
+- Expert-level explanations only — no beginner hand-holding
 - Always include the platform/OS context when commands differ across systems
-- For ambiguous queries, state your assumptions explicitly`;
+- For ambiguous queries, state your assumptions explicitly
+- Prioritize fastest resolution: commands first, explanation second`;
 
 const SCRIPT_BUILDER_SYSTEM = `You are a script generation engine for senior IT engineers and MSPs.
 
@@ -65,7 +64,7 @@ RESPONSE FORMAT (mandatory, never deviate):
 [SCRIPT]
 \`\`\`powershell|bash|python
 (Complete, production-ready script with error handling)
-(Include comments only for non-obvious logic)
+(Include comments for non-obvious logic only)
 \`\`\`
 
 [USAGE]
@@ -82,8 +81,8 @@ RULES:
 - Never use placeholder values — use clearly marked variables like $TARGET_SERVER
 - Default language: PowerShell for Windows tasks, Bash for Linux, Python for cross-platform
 - If the user specifies a language, use that exclusively
-- For Beginner Mode, add inline comments explaining each section
-- Never produce pseudocode — always real, executable code`;
+- Never produce pseudocode — always real, executable code
+- Include safe execution practices (dry-run flags, confirmation prompts where appropriate)`;
 
 const DEEP_DIVE_SYSTEM = `You are a root cause analysis and architecture advisor for senior IT engineers.
 
@@ -113,7 +112,8 @@ RULES:
 - Think like an incident commander
 - Start from symptoms, work toward root cause
 - Consider cascading failures and dependencies
-- Reference specific logs, metrics, or indicators to check`;
+- Reference specific logs, metrics, or indicators to check
+- Provide decision-tree style guidance when multiple paths exist`;
 
 const NETWORK_ANALYSIS_SYSTEM = `You are a network diagnostics and architecture specialist for senior engineers.
 
@@ -176,19 +176,37 @@ RULES:
 
 type OpsMode = "quick-fix" | "script-builder" | "deep-dive" | "network" | "system-design";
 
-function getSystemPrompt(mode: OpsMode, beginnerMode: boolean): string {
-  const base = {
+function getSystemPrompt(mode: OpsMode): string {
+  return {
     "quick-fix": QUICK_FIX_SYSTEM,
     "script-builder": SCRIPT_BUILDER_SYSTEM,
     "deep-dive": DEEP_DIVE_SYSTEM,
     "network": NETWORK_ANALYSIS_SYSTEM,
     "system-design": SYSTEM_DESIGN_SYSTEM,
   }[mode];
+}
 
-  if (beginnerMode) {
-    return base + "\n\nBEGINNER MODE IS ACTIVE: Add brief explanations after technical terms and commands. Explain WHY each step matters, not just WHAT to do.";
+async function createStreamWithRetry(
+  messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[]
+): Promise<AsyncIterable<OpenAI.Chat.Completions.ChatCompletionChunk>> {
+  try {
+    return await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages,
+      stream: true,
+      max_tokens: 4096,
+      temperature: 0.3,
+    });
+  } catch (error: any) {
+    console.warn("[itops] Retry stream creation after error:", error.message);
+    return await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages,
+      stream: true,
+      max_tokens: 4096,
+      temperature: 0.3,
+    });
   }
-  return base;
 }
 
 export function registerItOpsRoutes(app: Express): void {
@@ -207,8 +225,8 @@ export function registerItOpsRoutes(app: Express): void {
           return res.status(400).json({ error: parsed.error.issues[0]?.message || "Invalid input" });
         }
 
-        const { query, mode, beginnerMode, history } = parsed.data;
-        const systemPrompt = getSystemPrompt(mode, beginnerMode);
+        const { query, mode, history } = parsed.data;
+        const systemPrompt = getSystemPrompt(mode);
 
         const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
           { role: "system", content: systemPrompt },
@@ -223,14 +241,9 @@ export function registerItOpsRoutes(app: Express): void {
         res.setHeader("Content-Type", "text/event-stream");
         res.setHeader("Cache-Control", "no-cache");
         res.setHeader("Connection", "keep-alive");
+        res.setHeader("X-Accel-Buffering", "no");
 
-        const stream = await openai.chat.completions.create({
-          model: "gpt-4o",
-          messages,
-          stream: true,
-          max_tokens: 4096,
-          temperature: 0.3,
-        });
+        const stream = await createStreamWithRetry(messages);
 
         for await (const chunk of stream) {
           if (aborted) break;
@@ -247,7 +260,7 @@ export function registerItOpsRoutes(app: Express): void {
       } catch (error: any) {
         console.error("[itops] Query error:", error.message);
         if (res.headersSent) {
-          res.write(`data: ${JSON.stringify({ error: error.message })}\n\n`);
+          res.write(`data: ${JSON.stringify({ error: "Service temporarily unavailable. Try again." })}\n\n`);
           res.end();
         } else {
           res.status(500).json({ error: "Failed to process query" });
