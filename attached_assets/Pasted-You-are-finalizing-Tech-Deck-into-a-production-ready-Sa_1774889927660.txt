@@ -1,0 +1,180 @@
+You are finalizing Tech Deck into a production-ready SaaS platform for IT professionals, MSP engineers, and system architects.
+
+This is NOT a prototype anymore.
+This is a polished, fast, reliable, monetizable product.
+
+-----------------------------------
+GLOBAL OBJECTIVES
+-----------------------------------
+
+- Eliminate all friction, repetition, and low-value output
+- Ensure every feature provides immediate, actionable value
+- Make UI fast, clean, and professional
+- Ensure system stability and logical consistency
+- Prepare for real users and monetization
+
+-----------------------------------
+CORE PRODUCT STRUCTURE
+-----------------------------------
+
+Preserve all existing MSP platform features:
+- Tickets
+- Clients
+- Calendar
+- Time tracking
+- Billing
+
+Add and finalize the "IT Ops Console" module:
+
+Modes:
+- Quick Fix (default)
+- Script Builder
+- Deep Dive
+
+-----------------------------------
+RESPONSE ENGINE (MANDATORY FORMAT)
+-----------------------------------
+
+ALL responses must follow:
+
+[SUMMARY]
+1–2 lines max, no fluff
+
+[ACTION STEPS]
+Clear, ordered steps
+
+[COMMANDS / SCRIPT]
+Copy/paste-ready commands or scripts
+
+[ADVANCED INSIGHT]
+Optional, high-level reasoning or optimization
+
+Enforce formatting automatically before rendering.
+
+-----------------------------------
+UI / UX FINALIZATION
+-----------------------------------
+
+- Dark, modern, terminal-inspired UI
+- Clean spacing, no clutter
+- Fast input box with command-line feel
+- Output panel styled like a professional console
+- Syntax highlighting for scripts
+- Copy buttons for every code block
+- Loading indicator (smooth, minimal)
+
+Add:
+- Mode switcher (left panel or top tabs)
+- "Run Again" button
+- "Copy All" button
+- Last 5 queries cache (local storage)
+
+Remove:
+- Redundant text
+- Beginner-style explanations
+- Any repeated content
+
+-----------------------------------
+AI INTEGRATION
+-----------------------------------
+
+- Use OpenAI API for all dynamic responses
+- Build a backend endpoint: /api/itops
+
+Backend responsibilities:
+- Accept user input + mode
+- Apply structured prompting based on mode
+- Enforce response format before returning
+
+Add error handling:
+- API failure fallback message
+- Timeout handling
+- Retry logic (1 retry max)
+
+-----------------------------------
+MODE BEHAVIOR
+-----------------------------------
+
+Quick Fix:
+- Prioritize fastest resolution
+- Commands first, minimal explanation
+
+Script Builder:
+- Generate PowerShell / Bash scripts
+- Include:
+    - Comments
+    - Error handling
+    - Safe execution practices
+
+Deep Dive:
+- Provide root cause analysis
+- Decision-tree style guidance
+- Architecture-level insight
+
+-----------------------------------
+PERFORMANCE OPTIMIZATION
+-----------------------------------
+
+- Minimize re-renders
+- Optimize API calls
+- Cache recent responses
+- Ensure fast load times (<1–2 seconds perceived)
+
+-----------------------------------
+KNOWLEDGE VAULT (LIGHT VERSION)
+-----------------------------------
+
+- Allow user to save outputs
+- Store locally (for now)
+- Tag entries
+- Simple search/filter
+
+-----------------------------------
+EXPORT / SHARING
+-----------------------------------
+
+- Copy to clipboard (clean formatting)
+- Export as:
+    - Markdown
+    - Text file
+
+-----------------------------------
+SECURITY / SANITY CHECKS
+-----------------------------------
+
+- Sanitize user input
+- Prevent script injection in UI
+- Mask sensitive variables if detected
+
+-----------------------------------
+MONETIZATION READINESS
+-----------------------------------
+
+Prepare system for future feature gating:
+- Flag advanced features (Deep Dive, Vault, Script Builder)
+- Add placeholder for subscription tiers
+
+-----------------------------------
+FINAL POLISH PASS
+-----------------------------------
+
+- Remove all placeholder content
+- Fix UI inconsistencies
+- Ensure consistent spacing, fonts, and colors
+- Ensure all buttons function correctly
+- Test all modes for logical output quality
+
+-----------------------------------
+GOAL
+-----------------------------------
+
+Tech Deck should feel like:
+
+“A professional-grade IT operations command center used during real incidents”
+
+NOT:
+“A demo app or AI experiment”
+
+Every interaction should save time, reduce effort, or increase clarity.
+
+Ship-ready quality only.

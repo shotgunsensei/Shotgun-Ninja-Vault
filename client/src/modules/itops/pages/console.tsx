@@ -16,6 +16,8 @@ import {
   Send,
   Loader2,
   ChevronDown,
+  Terminal,
+  Trash2,
 } from "lucide-react";
 
 type OpsMode = "quick-fix" | "script-builder" | "deep-dive" | "network" | "system-design";
@@ -33,12 +35,12 @@ interface QueryEntry {
   timestamp: Date;
 }
 
-const MODES: { id: OpsMode; label: string; icon: typeof Zap; shortLabel: string }[] = [
-  { id: "quick-fix", label: "Quick Fix", icon: Zap, shortLabel: "QF" },
-  { id: "script-builder", label: "Script Builder", icon: Code2, shortLabel: "SB" },
-  { id: "deep-dive", label: "Deep Dive", icon: Search, shortLabel: "DD" },
-  { id: "network", label: "Network", icon: Network, shortLabel: "NET" },
-  { id: "system-design", label: "System Design", icon: Server, shortLabel: "SD" },
+const MODES: { id: OpsMode; label: string; icon: typeof Zap; desc: string }[] = [
+  { id: "quick-fix", label: "Quick Fix", icon: Zap, desc: "Fastest resolution path" },
+  { id: "script-builder", label: "Script Builder", icon: Code2, desc: "Production-ready scripts" },
+  { id: "deep-dive", label: "Deep Dive", icon: Search, desc: "Root cause analysis" },
+  { id: "network", label: "Network", icon: Network, desc: "Layer-by-layer diagnostics" },
+  { id: "system-design", label: "System Design", icon: Server, desc: "Architecture decisions" },
 ];
 
 function CopyButton({ text }: { text: string }) {
@@ -187,7 +189,6 @@ export function ItOpsConsolePage() {
   const [currentResponse, setCurrentResponse] = useState("");
   const [history, setHistory] = useState<QueryEntry[]>([]);
   const [conversationHistory, setConversationHistory] = useState<HistoryMessage[]>([]);
-  const [showHistory, setShowHistory] = useState(false);
   const responseRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const { toast } = useToast();
@@ -309,9 +310,16 @@ export function ItOpsConsolePage() {
   const modeConfig = MODES.find((m) => m.id === mode)!;
 
   return (
-    <div className="flex flex-col h-full bg-zinc-950 text-zinc-100">
-      <div className="flex items-center justify-between px-4 py-2 border-b border-zinc-800 bg-zinc-950/80 backdrop-blur-sm">
-        <div className="flex items-center gap-1">
+    <div className="flex h-full bg-zinc-950 text-zinc-100">
+      <div className="w-48 shrink-0 border-r border-zinc-800 flex flex-col bg-zinc-950">
+        <div className="px-3 py-3 border-b border-zinc-800">
+          <div className="flex items-center gap-2">
+            <Terminal className="w-4 h-4 text-emerald-400" />
+            <span className="text-xs font-semibold text-zinc-200 uppercase tracking-wider">IT Ops</span>
+          </div>
+        </div>
+
+        <div className="flex-1 py-2 px-2 space-y-0.5">
           {MODES.map((m) => {
             const Icon = m.icon;
             const active = mode === m.id;
@@ -321,180 +329,191 @@ export function ItOpsConsolePage() {
                 onClick={() => setMode(m.id)}
                 data-testid={`button-mode-${m.id}`}
                 className={`
-                  flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium transition-all
+                  w-full flex items-center gap-2 px-2.5 py-2 rounded text-left transition-all
                   ${active
                     ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30"
                     : "text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/50 border border-transparent"
                   }
                 `}
               >
-                <Icon className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">{m.label}</span>
-                <span className="sm:hidden">{m.shortLabel}</span>
+                <Icon className="w-3.5 h-3.5 shrink-0" />
+                <div className="min-w-0">
+                  <div className="text-xs font-medium truncate">{m.label}</div>
+                  {active && (
+                    <div className="text-[10px] text-zinc-500 truncate mt-0.5">{m.desc}</div>
+                  )}
+                </div>
               </button>
             );
           })}
         </div>
 
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2">
-            <Label htmlFor="beginner-toggle" className="text-[11px] text-zinc-500 uppercase tracking-wider">
-              {beginnerMode ? "Beginner" : "Expert"}
-            </Label>
-            <Switch
-              id="beginner-toggle"
-              checked={beginnerMode}
-              onCheckedChange={setBeginnerMode}
-              data-testid="switch-beginner-mode"
-              className="data-[state=checked]:bg-amber-500 data-[state=unchecked]:bg-zinc-700"
-            />
-          </div>
-          <button
-            onClick={clearSession}
-            className="p-1.5 rounded text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800 transition-colors"
-            title="Clear session"
-            data-testid="button-clear-session"
-          >
-            <RotateCcw className="w-3.5 h-3.5" />
-          </button>
-        </div>
-      </div>
-
-      <div ref={responseRef} className="flex-1 overflow-auto px-4 py-4">
-        {!currentResponse && history.length === 0 && (
-          <div className="flex flex-col items-center justify-center h-full text-center">
-            <div className="w-12 h-12 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mb-4">
-              <modeConfig.icon className="w-6 h-6 text-emerald-400" />
-            </div>
-            <h2 className="text-lg font-semibold text-zinc-200 mb-1">
-              IT Ops Console
-            </h2>
-            <p className="text-sm text-zinc-500 max-w-md mb-6">
-              {mode === "quick-fix" && "Fast troubleshooting. Describe the issue, get actionable steps."}
-              {mode === "script-builder" && "Production-ready scripts. Specify the task and target platform."}
-              {mode === "deep-dive" && "Root cause analysis. Describe symptoms for systematic diagnosis."}
-              {mode === "network" && "Network diagnostics. Describe connectivity issues for layer-by-layer analysis."}
-              {mode === "system-design" && "Architecture decisions. Describe requirements for design recommendations."}
-            </p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs max-w-lg w-full">
-              {getExamples(mode).map((ex, i) => (
+        <div className="border-t border-zinc-800 px-2 py-2 space-y-2">
+          {history.length > 0 && (
+            <div>
+              <div className="flex items-center justify-between px-1 mb-1">
+                <span className="text-[10px] text-zinc-600 uppercase tracking-wider">Recent</span>
                 <button
-                  key={i}
-                  onClick={() => {
-                    setQuery(ex);
-                    inputRef.current?.focus();
-                  }}
-                  data-testid={`button-example-${i}`}
-                  className="text-left px-3 py-2 rounded border border-zinc-800 text-zinc-400 hover:text-zinc-200 hover:border-zinc-700 hover:bg-zinc-900/50 transition-all"
+                  onClick={clearSession}
+                  className="text-zinc-600 hover:text-zinc-400 transition-colors"
+                  title="Clear history"
+                  data-testid="button-clear-session"
                 >
-                  {ex}
+                  <Trash2 className="w-3 h-3" />
                 </button>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {currentResponse && (
-          <div className="max-w-3xl mx-auto">
-            <ResponseBlock content={currentResponse} />
-            {isStreaming && (
-              <div className="flex items-center gap-2 mt-3 text-xs text-zinc-500">
-                <Loader2 className="w-3 h-3 animate-spin" />
-                <span>Processing...</span>
               </div>
-            )}
-          </div>
-        )}
-
-        {!currentResponse && history.length > 0 && (
-          <div className="max-w-3xl mx-auto">
-            <button
-              onClick={() => setShowHistory(!showHistory)}
-              className="flex items-center gap-2 text-xs text-zinc-500 hover:text-zinc-300 mb-3"
-              data-testid="button-toggle-history"
-            >
-              <ChevronDown className={`w-3 h-3 transition-transform ${showHistory ? "rotate-180" : ""}`} />
-              {history.length} previous {history.length === 1 ? "query" : "queries"}
-            </button>
-            {showHistory && (
-              <div className="space-y-2">
-                {history.map((entry) => (
+              <div className="space-y-0.5 max-h-40 overflow-y-auto">
+                {history.slice(0, 5).map((entry) => (
                   <button
                     key={entry.id}
-                    onClick={() => {
-                      setCurrentResponse(entry.response);
-                    }}
+                    onClick={() => setCurrentResponse(entry.response)}
                     data-testid={`button-history-${entry.id}`}
-                    className="w-full text-left px-3 py-2 rounded border border-zinc-800 hover:border-zinc-700 hover:bg-zinc-900/50 transition-all"
+                    className="w-full text-left px-2 py-1.5 rounded text-[11px] text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/50 truncate transition-all"
+                    title={entry.query}
                   >
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="text-[10px] uppercase tracking-wider text-emerald-400/60 font-medium">
-                        {entry.mode.replace("-", " ")}
-                      </span>
-                      <span className="text-[10px] text-zinc-600">
-                        {entry.timestamp.toLocaleTimeString()}
-                      </span>
-                    </div>
-                    <p className="text-xs text-zinc-400 truncate">{entry.query}</p>
+                    {entry.query}
                   </button>
                 ))}
               </div>
-            )}
-          </div>
-        )}
+            </div>
+          )}
+        </div>
       </div>
 
-      <div className="border-t border-zinc-800 bg-zinc-950/80 backdrop-blur-sm px-4 py-3">
-        <div className="max-w-3xl mx-auto">
-          <div className="flex items-end gap-2">
-            <div className="flex-1 relative">
-              <Textarea
-                ref={inputRef}
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder={getPlaceholder(mode)}
-                disabled={isStreaming}
-                rows={1}
-                data-testid="input-query"
-                className="resize-none bg-zinc-900 border-zinc-800 text-zinc-100 placeholder:text-zinc-600 text-sm font-mono min-h-[40px] max-h-[120px] pr-10 focus-visible:ring-emerald-500/30 focus-visible:border-emerald-500/50"
-                style={{ fieldSizing: "content" } as any}
+      <div className="flex-1 flex flex-col min-w-0">
+        <div className="flex items-center justify-between px-4 py-2 border-b border-zinc-800 bg-zinc-900/50">
+          <div className="flex items-center gap-2">
+            <modeConfig.icon className="w-4 h-4 text-emerald-400" />
+            <span className="text-sm font-medium text-zinc-200">{modeConfig.label}</span>
+            <span className="text-[10px] text-zinc-600">·</span>
+            <span className="text-[10px] text-zinc-500">{modeConfig.desc}</span>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
+              <Label htmlFor="beginner-toggle" className="text-[11px] text-zinc-500 uppercase tracking-wider cursor-pointer">
+                {beginnerMode ? "Beginner" : "Expert"}
+              </Label>
+              <Switch
+                id="beginner-toggle"
+                checked={!beginnerMode}
+                onCheckedChange={(v) => setBeginnerMode(!v)}
+                data-testid="switch-expert-mode"
+                className="data-[state=checked]:bg-emerald-600 data-[state=unchecked]:bg-amber-500"
               />
             </div>
-            <Button
-              onClick={() => handleSubmit()}
-              disabled={!query.trim() || isStreaming}
-              size="sm"
-              data-testid="button-submit-query"
-              className="bg-emerald-600 hover:bg-emerald-500 text-white h-10 px-3"
-            >
-              {isStreaming ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <Send className="w-4 h-4" />
-              )}
-            </Button>
-            {history.length > 0 && (
-              <Button
-                onClick={handleReuseLast}
-                disabled={isStreaming}
-                variant="outline"
-                size="sm"
-                data-testid="button-reuse-last"
-                className="border-zinc-800 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 h-10"
-                title="Reuse last query"
-              >
-                <RotateCcw className="w-4 h-4" />
-              </Button>
-            )}
           </div>
-          <div className="flex items-center justify-between mt-1.5">
-            <span className="text-[10px] text-zinc-600">
-              Enter to send · Shift+Enter for new line
-            </span>
-            <span className="text-[10px] text-zinc-600">
-              {beginnerMode ? "🟡 Beginner" : "🟢 Expert"} · {MODES.find(m => m.id === mode)?.label}
-            </span>
+        </div>
+
+        <div ref={responseRef} className="flex-1 overflow-auto px-6 py-4">
+          {!currentResponse && history.length === 0 && (
+            <div className="flex flex-col items-center justify-center h-full text-center">
+              <div className="w-14 h-14 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mb-4">
+                <modeConfig.icon className="w-7 h-7 text-emerald-400" />
+              </div>
+              <h2 className="text-lg font-semibold text-zinc-200 mb-1">
+                {modeConfig.label}
+              </h2>
+              <p className="text-sm text-zinc-500 max-w-md mb-6">
+                {modeConfig.desc}. Type a query below or pick a starter.
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs max-w-lg w-full">
+                {getExamples(mode).map((ex, i) => (
+                  <button
+                    key={i}
+                    onClick={() => {
+                      setQuery(ex);
+                      inputRef.current?.focus();
+                    }}
+                    data-testid={`button-example-${i}`}
+                    className="text-left px-3 py-2.5 rounded border border-zinc-800 text-zinc-400 hover:text-zinc-200 hover:border-zinc-700 hover:bg-zinc-900/50 transition-all"
+                  >
+                    {ex}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {currentResponse && (
+            <div className="max-w-3xl">
+              <ResponseBlock content={currentResponse} />
+              {isStreaming && (
+                <div className="flex items-center gap-2 mt-3 text-xs text-zinc-500">
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                  <span>Processing...</span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {!currentResponse && history.length > 0 && (
+            <div className="flex flex-col items-center justify-center h-full text-center">
+              <div className="w-14 h-14 rounded-xl bg-zinc-800/50 border border-zinc-800 flex items-center justify-center mb-4">
+                <modeConfig.icon className="w-7 h-7 text-zinc-500" />
+              </div>
+              <p className="text-sm text-zinc-500 mb-2">
+                Ready for your next query.
+              </p>
+              <p className="text-[11px] text-zinc-600">
+                {history.length} {history.length === 1 ? "query" : "queries"} in session · Select from Recent in sidebar
+              </p>
+            </div>
+          )}
+        </div>
+
+        <div className="border-t border-zinc-800 bg-zinc-900/50 px-4 py-3">
+          <div className="max-w-3xl">
+            <div className="flex items-end gap-2">
+              <div className="flex-1 relative">
+                <Textarea
+                  ref={inputRef}
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  placeholder={getPlaceholder(mode)}
+                  disabled={isStreaming}
+                  rows={1}
+                  data-testid="input-query"
+                  className="resize-none bg-zinc-950 border-zinc-800 text-zinc-100 placeholder:text-zinc-600 text-sm font-mono min-h-[40px] max-h-[120px] focus-visible:ring-emerald-500/30 focus-visible:border-emerald-500/50"
+                  style={{ fieldSizing: "content" } as any}
+                />
+              </div>
+              <Button
+                onClick={() => handleSubmit()}
+                disabled={!query.trim() || isStreaming}
+                size="sm"
+                data-testid="button-submit-query"
+                className="bg-emerald-600 hover:bg-emerald-500 text-white h-10 px-3"
+              >
+                {isStreaming ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Send className="w-4 h-4" />
+                )}
+              </Button>
+              {history.length > 0 && (
+                <Button
+                  onClick={handleReuseLast}
+                  disabled={isStreaming}
+                  variant="outline"
+                  size="sm"
+                  data-testid="button-reuse-last"
+                  className="border-zinc-800 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 h-10"
+                  title="Reuse last query"
+                >
+                  <RotateCcw className="w-4 h-4" />
+                </Button>
+              )}
+            </div>
+            <div className="flex items-center justify-between mt-1.5">
+              <span className="text-[10px] text-zinc-600 font-mono">
+                Enter to send · Shift+Enter for new line
+              </span>
+              <span className="text-[10px] text-zinc-600 font-mono">
+                {beginnerMode ? "BEGINNER" : "EXPERT"} · {modeConfig.label.toUpperCase()}
+              </span>
+            </div>
           </div>
         </div>
       </div>
@@ -505,15 +524,15 @@ export function ItOpsConsolePage() {
 function getPlaceholder(mode: OpsMode): string {
   switch (mode) {
     case "quick-fix":
-      return "Describe the issue... (e.g., 'DNS resolution failing on Windows Server 2022')";
+      return "Describe the issue... (e.g., DNS resolution failing on Windows Server 2022)";
     case "script-builder":
-      return "What script do you need? (e.g., 'PowerShell to audit AD user last logon dates')";
+      return "What script do you need? (e.g., PowerShell to audit AD user last logon dates)";
     case "deep-dive":
-      return "Describe the symptoms... (e.g., 'Exchange 2019 queuing mail, CPU at 95%')";
+      return "Describe the symptoms... (e.g., Exchange 2019 queuing mail, CPU at 95%)";
     case "network":
-      return "Describe the network issue... (e.g., 'Intermittent packet loss between VLAN 10 and 20')";
+      return "Describe the network issue... (e.g., Intermittent packet loss between VLAN 10 and 20)";
     case "system-design":
-      return "What are you designing? (e.g., 'Multi-site backup architecture for 50 endpoints')";
+      return "What are you designing? (e.g., Multi-site backup architecture for 50 endpoints)";
   }
 }
 
