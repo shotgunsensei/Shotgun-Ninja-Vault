@@ -49,6 +49,7 @@ import { TimeEntriesPage } from "@/modules/time";
 import { BillingSettingsPage, InvoicesPage, InvoiceDetailPage } from "@/modules/invoicing";
 import { KbListPage, KbArticlePage } from "@/modules/kb";
 import { RecurringTemplatesPage } from "@/modules/recurring";
+import { ItOpsConsolePage } from "@/modules/itops";
 import {
   MobileLayout,
   MobileTicketsPage,
@@ -191,6 +192,7 @@ function AuthenticatedApp() {
                 {isAdminOrOwner && <Route path="/billing/success" component={BillingSuccessPage} />}
                 {isAdminOrOwner && <Route path="/billing/cancel" component={BillingCancelPage} />}
                 {!isClient && <Route path="/reports" component={ReportsPage} />}
+                {!isClient && <Route path="/itops" component={ItOpsConsolePage} />}
                 {!isClient && <Route path="/settings" component={SettingsPage} />}
                 {isSystemAdmin && <Route path="/system-admin" component={AdminPanelPage} />}
                 <Route component={NotFound} />

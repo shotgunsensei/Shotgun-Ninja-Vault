@@ -31,6 +31,7 @@ The application follows a modular, multi-tenant architecture with strict data is
 - **System Admin Module**: Provides system-wide administrative functions for managing tenants and users.
 - **Pending Invitations**: Supports auto-joining users to tenants upon OIDC login via pending invitations.
 - **CSV Import/Export**: Backend endpoints for CSV template downloads and bulk import of clients, sites, and assets with per-row validation and audit trails.
+- **IT Ops Console Module**: AI-powered operations tool for senior engineers and MSPs. Features five modes (Quick Fix, Script Builder, Deep Dive, Network Analysis, System Design) with structured response engine (Summary → Action Steps → Commands → Advanced Insight). Uses OpenAI via Replit AI Integrations with streaming SSE responses. Dark terminal-style UI with Expert/Beginner toggle. Role-gated to OWNER/ADMIN/TECH with Zod input validation, size limits, and client disconnect handling.
 - **Core MSP Functionality**:
     - **Ticketing System**: Full CRUD for tickets, comments, and SLA profiles with status indicators.
     - **Dispatch Calendar**: CRUD for appointments with date range filtering and a weekly grid view.
@@ -54,3 +55,4 @@ The application follows a modular, multi-tenant architecture with strict data is
 - **Drizzle ORM**: TypeScript ORM.
 - **papaparse**: Server-side CSV parsing.
 - **Stripe**: Payment processing via Replit connector.
+- **OpenAI**: AI capabilities via Replit AI Integrations (no API key required, billed to Replit credits).

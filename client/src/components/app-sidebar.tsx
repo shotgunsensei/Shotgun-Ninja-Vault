@@ -24,6 +24,7 @@ import {
   Repeat,
   Wrench,
   Smartphone,
+  Terminal,
 } from "lucide-react";
 import logoImage from "@assets/ShotgunNinjaVaulticon_1770412982737.png";
 import { useLocation, Link } from "wouter";
@@ -90,6 +91,7 @@ export function AppSidebar({ role, isSystemAdmin = false, isPaused = false }: Ap
           { title: "Evidence", url: "/evidence", icon: FileText, show: true },
           { title: "Knowledge Base", url: "/kb", icon: BookOpen, show: true },
           { title: "Reports", url: "/reports", icon: ClipboardList, show: true },
+          { title: "IT Ops Console", url: "/itops", icon: Terminal, show: true },
           { title: "Mobile View", url: "/m", icon: Smartphone, show: true },
         ].filter((item) => item.show);
 
