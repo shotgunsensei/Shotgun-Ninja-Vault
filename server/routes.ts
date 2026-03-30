@@ -25,7 +25,7 @@ import { startWebhookWorker } from "./modules/webhooks/worker";
 import { startGraceCleanupJob } from "./core/billing/graceCleanup";
 import { registerBillingRoutes } from "./modules/billing/routes";
 import { registerStripeWebhook } from "./modules/billing/webhook";
-import { seedSubscriptionPlans, initStripeClient, setStripePriceMap } from "./modules/billing/stripe";
+import { seedSubscriptionPlans, initStripeClient, isStripeConfigured, setStripePriceMap } from "./modules/billing/stripe";
 import { storage } from "./storage";
 import { pool } from "./db";
 import { ensureProductionSetup } from "./productionSeed";
@@ -47,6 +47,11 @@ async function initStripeSync(): Promise<void> {
 
   try {
     await initStripeClient();
+
+    if (!isStripeConfigured()) {
+      console.warn("[stripe] Stripe client not available, skipping sync setup");
+      return;
+    }
 
     console.log("[stripe] Running stripe-replit-sync migrations...");
     await runMigrations({ databaseUrl });
