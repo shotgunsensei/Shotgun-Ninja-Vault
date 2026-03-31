@@ -55,6 +55,62 @@ export function registerAdminRoutes(app: Express) {
     }
   });
 
+  app.patch("/api/admin/tenants/:tenantId/subscription", isAuthenticated, requireSystemAdmin(), async (req: any, res) => {
+    try {
+      const { tenantId } = req.params;
+      const parsed = z.object({
+        planCode: z.string().min(1),
+        status: z.enum(["trialing", "active", "past_due", "canceled", "incomplete", "incomplete_expired", "unpaid"]).optional(),
+      }).safeParse(req.body);
+
+      if (!parsed.success) {
+        return res.status(400).json({ message: parsed.error.issues[0]?.message || "Invalid input" });
+      }
+
+      const { planCode, status } = parsed.data;
+
+      const tenant = await storage.getTenantById(tenantId);
+      if (!tenant) {
+        return res.status(404).json({ message: "Tenant not found" });
+      }
+
+      const plan = await storage.getSubscriptionPlanByCode(planCode);
+      if (!plan) {
+        return res.status(400).json({ message: `Plan "${planCode}" not found` });
+      }
+
+      const existing = await storage.getTenantSubscription(tenantId);
+      if (existing) {
+        const updateData: any = { planCode };
+        if (status) updateData.status = status;
+        if (status === "active") updateData.pausedAt = null;
+        await storage.updateTenantSubscription(tenantId, updateData);
+      } else {
+        await storage.upsertTenantSubscription({
+          tenantId,
+          planCode,
+          status: status || "active",
+        });
+      }
+
+      const updated = await storage.getTenantSubscription(tenantId);
+      res.json({ success: true, subscription: updated });
+    } catch (error: any) {
+      console.error("[admin] PATCH /tenants/:id/subscription error:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/admin/plans", isAuthenticated, requireSystemAdmin(), async (req: any, res) => {
+    try {
+      const plans = await storage.getAllSubscriptionPlans();
+      res.json({ plans });
+    } catch (error: any) {
+      console.error("[admin] GET /plans error:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   app.post("/api/admin/tenants/:tenantId/unpause", isAuthenticated, requireSystemAdmin(), async (req: any, res) => {
     try {
       const { tenantId } = req.params;

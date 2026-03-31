@@ -18,6 +18,20 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
+import {
   Building2,
   Users,
   ShieldCheck,
@@ -26,6 +40,7 @@ import {
   Play,
   Pause,
   AlertTriangle,
+  CreditCard,
 } from "lucide-react";
 import { useState } from "react";
 
@@ -69,6 +84,136 @@ function getPauseDaysRemaining(pausedAt: string | null): number | null {
   return Math.max(0, 90 - daysPaused);
 }
 
+interface SubscriptionPlan {
+  id: string;
+  code: string;
+  name: string;
+  monthlyPriceCents: number;
+}
+
+const STATUSES = [
+  { value: "active", label: "Active" },
+  { value: "trialing", label: "Trialing" },
+  { value: "past_due", label: "Past Due" },
+  { value: "canceled", label: "Canceled" },
+  { value: "incomplete", label: "Incomplete" },
+  { value: "incomplete_expired", label: "Incomplete (Expired)" },
+  { value: "unpaid", label: "Unpaid" },
+];
+
+function ChangeSubscriptionDialog({
+  open,
+  onClose,
+  tenant,
+  plans,
+}: {
+  open: boolean;
+  onClose: () => void;
+  tenant: AdminTenant;
+  plans: SubscriptionPlan[];
+}) {
+  const { toast } = useToast();
+  const currentPlan = tenant.subscription?.planCode || "solo";
+  const currentStatus = tenant.subscription?.status || "active";
+  const [selectedPlan, setSelectedPlan] = useState(currentPlan);
+  const [selectedStatus, setSelectedStatus] = useState(currentStatus);
+
+  const mutation = useMutation({
+    mutationFn: async () => {
+      await apiRequest("PATCH", `/api/admin/tenants/${tenant.id}/subscription`, {
+        planCode: selectedPlan,
+        status: selectedStatus,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/tenants"] });
+      toast({ title: "Subscription updated" });
+      onClose();
+    },
+    onError: (err: any) => {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const selectedPlanData = plans.find((p) => p.code === selectedPlan);
+  const hasChanges = selectedPlan !== currentPlan || selectedStatus !== currentStatus;
+
+  return (
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <CreditCard className="w-4 h-4" />
+            Change Subscription — {tenant.name}
+          </DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4 mt-2">
+          {plans.length === 0 && (
+            <p className="text-sm text-destructive" data-testid="text-plans-error">
+              Unable to load subscription plans. Please try again later.
+            </p>
+          )}
+          <div className="space-y-2">
+            <Label>Plan</Label>
+            <Select value={selectedPlan} onValueChange={setSelectedPlan} disabled={plans.length === 0}>
+              <SelectTrigger data-testid="select-plan">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {plans.map((plan) => (
+                  <SelectItem key={plan.code} value={plan.code} data-testid={`option-plan-${plan.code}`}>
+                    {plan.name} — ${(plan.monthlyPriceCents / 100).toFixed(0)}/mo
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {selectedPlanData && (
+              <p className="text-xs text-muted-foreground">
+                ${(selectedPlanData.monthlyPriceCents / 100).toFixed(0)}/month
+              </p>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <Label>Status</Label>
+            <Select value={selectedStatus} onValueChange={setSelectedStatus}>
+              <SelectTrigger data-testid="select-status">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {STATUSES.map((s) => (
+                  <SelectItem key={s.value} value={s.value} data-testid={`option-status-${s.value}`}>
+                    {s.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {tenant.subscription?.stripeSubscriptionId && (
+            <p className="text-xs text-amber-600 dark:text-amber-400">
+              This tenant has an active Stripe subscription. Changing the plan here will override the local record but won't modify the Stripe subscription itself.
+            </p>
+          )}
+
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="outline" onClick={onClose} data-testid="button-cancel-sub-change">
+              Cancel
+            </Button>
+            <Button
+              onClick={() => mutation.mutate()}
+              disabled={mutation.isPending || !hasChanges || plans.length === 0}
+              data-testid="button-confirm-sub-change"
+            >
+              {mutation.isPending ? "Saving..." : "Save Changes"}
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function StatusBadge({ status, pausedAt }: { status: string; pausedAt: string | null }) {
   if (pausedAt) {
     const daysLeft = getPauseDaysRemaining(pausedAt);
@@ -95,6 +240,7 @@ function StatusBadge({ status, pausedAt }: { status: string; pausedAt: string | 
 export function AdminPanelPage() {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState<"tenants" | "users">("tenants");
+  const [subDialogTenant, setSubDialogTenant] = useState<AdminTenant | null>(null);
 
   const { data: tenantsData, isLoading: tenantsLoading } = useQuery<{ tenants: AdminTenant[] }>({
     queryKey: ["/api/admin/tenants"],
@@ -102,6 +248,10 @@ export function AdminPanelPage() {
 
   const { data: usersData, isLoading: usersLoading } = useQuery<{ users: AdminUser[] }>({
     queryKey: ["/api/admin/users"],
+  });
+
+  const { data: plansData } = useQuery<{ plans: SubscriptionPlan[] }>({
+    queryKey: ["/api/admin/plans"],
   });
 
   const toggleAdminMutation = useMutation({
@@ -232,6 +382,15 @@ export function AdminPanelPage() {
                       )}
                     </div>
                     <div className="flex items-center gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setSubDialogTenant(tenant)}
+                        data-testid={`button-change-sub-${tenant.id}`}
+                      >
+                        <CreditCard className="w-3 h-3 mr-1" />
+                        Change Plan
+                      </Button>
                       {tenant.subscription?.pausedAt ? (
                         <Button
                           size="sm"
@@ -366,6 +525,15 @@ export function AdminPanelPage() {
             ))
           )}
         </div>
+      )}
+
+      {subDialogTenant && (
+        <ChangeSubscriptionDialog
+          open={!!subDialogTenant}
+          onClose={() => setSubDialogTenant(null)}
+          tenant={subDialogTenant}
+          plans={plansData?.plans || []}
+        />
       )}
     </div>
   );
