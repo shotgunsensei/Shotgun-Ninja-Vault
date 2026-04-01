@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Loader2, UserPlus, Check, X } from "lucide-react";
 import { queryClient } from "@/lib/queryClient";
+import { authFetch } from "@/lib/csrf";
 import logoImage from "@assets/ShotgunNinjaVaulticon_1770412982737.png";
 
 function PasswordStrength({ password }: { password: string }) {
@@ -71,11 +72,9 @@ export default function RegisterPage() {
     setLoading(true);
 
     try {
-      const res = await fetch("/api/auth/register", {
+      const res = await authFetch("/api/auth/register", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password, firstName, lastName }),
-        credentials: "include",
       });
 
       const data = await res.json();

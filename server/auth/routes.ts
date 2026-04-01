@@ -15,6 +15,8 @@ import {
   verifyPassword,
 } from "./authService";
 import { isAuthenticated } from "./middleware";
+import { enforceHttps } from "./httpsEnforce";
+import { csrfProtection, registerCsrfRoutes } from "./csrf";
 
 const registerSchema = z.object({
   email: z.string().email("Invalid email address"),
@@ -43,7 +45,11 @@ const authLimiter = rateLimit({
 });
 
 export function registerAuthRoutes(app: Express): void {
-  app.post("/api/auth/register", authLimiter, async (req: Request, res: Response) => {
+  app.use("/api/auth", enforceHttps);
+
+  registerCsrfRoutes(app);
+
+  app.post("/api/auth/register", authLimiter, csrfProtection, async (req: Request, res: Response) => {
     try {
       const parsed = registerSchema.safeParse(req.body);
       if (!parsed.success) {
@@ -78,7 +84,7 @@ export function registerAuthRoutes(app: Express): void {
     }
   });
 
-  app.post("/api/auth/login", authLimiter, async (req: Request, res: Response) => {
+  app.post("/api/auth/login", authLimiter, csrfProtection, async (req: Request, res: Response) => {
     try {
       const parsed = loginSchema.safeParse(req.body);
       if (!parsed.success) {
@@ -115,7 +121,7 @@ export function registerAuthRoutes(app: Express): void {
     }
   });
 
-  app.post("/api/auth/mfa/validate", async (req: Request, res: Response) => {
+  app.post("/api/auth/mfa/validate", csrfProtection, async (req: Request, res: Response) => {
     try {
       const userId = req.session?.userId;
       if (!userId || !req.session?.mfaPending) {
@@ -149,7 +155,7 @@ export function registerAuthRoutes(app: Express): void {
     }
   });
 
-  app.post("/api/auth/logout", (req: Request, res: Response) => {
+  app.post("/api/auth/logout", csrfProtection, (req: Request, res: Response) => {
     req.session.destroy((err) => {
       if (err) {
         console.error("[auth] Logout error:", err);
@@ -183,7 +189,7 @@ export function registerAuthRoutes(app: Express): void {
     }
   });
 
-  app.post("/api/auth/mfa/setup", isAuthenticated, async (req: Request, res: Response) => {
+  app.post("/api/auth/mfa/setup", isAuthenticated, csrfProtection, async (req: Request, res: Response) => {
     try {
       const userId = req.session.userId!;
       const user = await getUser(userId);
@@ -212,7 +218,7 @@ export function registerAuthRoutes(app: Express): void {
     }
   });
 
-  app.post("/api/auth/mfa/verify", isAuthenticated, async (req: Request, res: Response) => {
+  app.post("/api/auth/mfa/verify", isAuthenticated, csrfProtection, async (req: Request, res: Response) => {
     try {
       const userId = req.session.userId!;
       const pendingSecret = req.session.pendingMfaSecret;
@@ -248,7 +254,7 @@ export function registerAuthRoutes(app: Express): void {
     }
   });
 
-  app.post("/api/auth/mfa/disable", isAuthenticated, async (req: Request, res: Response) => {
+  app.post("/api/auth/mfa/disable", isAuthenticated, csrfProtection, async (req: Request, res: Response) => {
     try {
       const userId = req.session.userId!;
       const { password } = req.body;

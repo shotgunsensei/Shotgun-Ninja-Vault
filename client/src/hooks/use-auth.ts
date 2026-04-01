@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { User } from "@shared/models/auth";
+import { authFetch, clearCsrfToken } from "@/lib/csrf";
 
 type AuthUser = Pick<User, "id" | "email" | "firstName" | "lastName" | "profileImageUrl" | "isSystemAdmin" | "createdAt"> & {
   mfaEnabled: boolean;
@@ -22,10 +23,10 @@ async function fetchUser(): Promise<AuthUser | null> {
 }
 
 async function performLogout(): Promise<void> {
-  await fetch("/api/auth/logout", {
+  await authFetch("/api/auth/logout", {
     method: "POST",
-    credentials: "include",
   });
+  clearCsrfToken();
   window.location.href = "/";
 }
 

@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Loader2, Shield, Copy, Check, ArrowLeft } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient } from "@/lib/queryClient";
+import { authFetch } from "@/lib/csrf";
 
 export default function MfaSetupPage() {
   const [, setLocation] = useLocation();
@@ -24,9 +25,8 @@ export default function MfaSetupPage() {
     setLoading(true);
     setError("");
     try {
-      const res = await fetch("/api/auth/mfa/setup", {
+      const res = await authFetch("/api/auth/mfa/setup", {
         method: "POST",
-        credentials: "include",
       });
       const data = await res.json();
       if (!res.ok) {
@@ -48,11 +48,9 @@ export default function MfaSetupPage() {
     setLoading(true);
     setError("");
     try {
-      const res = await fetch("/api/auth/mfa/verify", {
+      const res = await authFetch("/api/auth/mfa/verify", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ code }),
-        credentials: "include",
       });
       const data = await res.json();
       if (!res.ok) {

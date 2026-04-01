@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Loader2, LogIn, Shield } from "lucide-react";
 import { queryClient } from "@/lib/queryClient";
+import { authFetch, clearCsrfToken } from "@/lib/csrf";
 import logoImage from "@assets/ShotgunNinjaVaulticon_1770412982737.png";
 
 export default function LoginPage() {
@@ -23,12 +24,11 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      const res = await fetch("/api/auth/login", {
+      const res = await authFetch("/api/auth/login", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
-        credentials: "include",
       });
+      clearCsrfToken();
 
       const data = await res.json();
 
@@ -59,11 +59,9 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      const res = await fetch("/api/auth/mfa/validate", {
+      const res = await authFetch("/api/auth/mfa/validate", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ code: mfaCode }),
-        credentials: "include",
       });
 
       const data = await res.json();
