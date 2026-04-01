@@ -99,7 +99,7 @@ export default function MfaSetupPage() {
               {copied ? <Check className="w-4 h-4 mr-2" /> : <Copy className="w-4 h-4 mr-2" />}
               {copied ? "Copied!" : "Copy Recovery Codes"}
             </Button>
-            <Button className="w-full" onClick={() => setLocation("/settings")} data-testid="button-mfa-done">
+            <Button className="w-full" onClick={() => setLocation("/account-security")} data-testid="button-mfa-done">
               Done
             </Button>
           </CardContent>
@@ -182,9 +182,9 @@ export default function MfaSetupPage() {
             {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Shield className="w-4 h-4 mr-2" />}
             Start Setup
           </Button>
-          <Button variant="ghost" className="w-full" onClick={() => setLocation("/settings")} data-testid="button-mfa-cancel">
+          <Button variant="ghost" className="w-full" onClick={() => setLocation("/account-security")} data-testid="button-mfa-cancel">
             <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Settings
+            Back to Account Security
           </Button>
         </CardContent>
       </Card>

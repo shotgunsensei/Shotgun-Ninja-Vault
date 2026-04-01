@@ -281,6 +281,43 @@ export function registerAuthRoutes(app: Express): void {
     }
   });
 
+  app.post("/api/auth/change-password", isAuthenticated, authLimiter, csrfProtection, async (req: Request, res: Response) => {
+    try {
+      const userId = req.session.userId!;
+      const { currentPassword, newPassword } = req.body;
+
+      if (!currentPassword || !newPassword) {
+        return res.status(400).json({ message: "Current and new password are required" });
+      }
+
+      if (newPassword.length < 8) {
+        return res.status(400).json({ message: "New password must be at least 8 characters" });
+      }
+
+      const user = await getUser(userId);
+      if (!user || !user.passwordHash) {
+        return res.status(400).json({ message: "Invalid request" });
+      }
+
+      const valid = await verifyPassword(currentPassword, user.passwordHash);
+      if (!valid) {
+        return res.status(401).json({ message: "Current password is incorrect" });
+      }
+
+      const { hashPassword } = await import("./authService");
+      const newHash = await hashPassword(newPassword);
+      const { db } = await import("../db");
+      const { users } = await import("@shared/models/auth");
+      const { eq } = await import("drizzle-orm");
+      await db.update(users).set({ passwordHash: newHash }).where(eq(users.id, userId));
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error("[auth] Password change error:", error);
+      res.status(500).json({ message: "Failed to change password" });
+    }
+  });
+
   app.get("/api/auth/admin-check", isAuthenticated, async (req: Request, res: Response) => {
     try {
       const userId = req.session.userId!;

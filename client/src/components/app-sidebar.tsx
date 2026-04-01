@@ -59,7 +59,7 @@ interface AppSidebarProps {
 }
 
 export function AppSidebar({ role, isSystemAdmin = false, isPaused = false }: AppSidebarProps) {
-  const [location] = useLocation();
+  const [location, setLocation] = useLocation();
   const { user, logout } = useAuth();
 
   const isClient = role === "CLIENT";
@@ -289,6 +289,13 @@ export function AppSidebar({ role, isSystemAdmin = false, isPaused = false }: Ap
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent side="top" align="start" className="w-56">
+            <DropdownMenuItem
+              data-testid="button-account-security"
+              onClick={() => setLocation("/account-security")}
+            >
+              <ShieldCheck className="w-4 h-4 mr-2" />
+              Account Security
+            </DropdownMenuItem>
             <DropdownMenuItem
               data-testid="button-logout"
               onClick={() => logout()}

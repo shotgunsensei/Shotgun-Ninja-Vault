@@ -48,6 +48,7 @@ import { CalendarPage } from "@/modules/calendar";
 import { TimeEntriesPage } from "@/modules/time";
 import { BillingSettingsPage, InvoicesPage, InvoiceDetailPage } from "@/modules/invoicing";
 import { KbListPage, KbArticlePage } from "@/modules/kb";
+import AccountSecurityPage from "@/pages/account-security";
 import { RecurringTemplatesPage } from "@/modules/recurring";
 import { ItOpsConsolePage } from "@/modules/itops";
 import {
@@ -197,6 +198,7 @@ function AuthenticatedApp() {
                 {!isClient && <Route path="/reports" component={ReportsPage} />}
                 {!isClient && <Route path="/itops" component={ItOpsConsolePage} />}
                 {!isClient && <Route path="/settings" component={SettingsPage} />}
+                <Route path="/account-security" component={AccountSecurityPage} />
                 <Route path="/mfa-setup" component={MfaSetupPage} />
                 {isSystemAdmin && <Route path="/system-admin" component={AdminPanelPage} />}
                 <Route component={NotFound} />
