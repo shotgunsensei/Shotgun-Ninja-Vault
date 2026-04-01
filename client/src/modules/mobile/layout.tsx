@@ -25,7 +25,7 @@ const tabs = [
 
 export function MobileLayout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
 
   const initials = user
     ? `${(user.firstName || "")[0] || ""}${(user.lastName || "")[0] || ""}`
@@ -58,11 +58,12 @@ export function MobileLayout({ children }: { children: React.ReactNode }) {
               <DropdownMenuItem disabled className="text-xs opacity-70">
                 {user?.firstName} {user?.lastName}
               </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <a href="/api/logout" data-testid="button-mobile-logout">
-                  <LogOut className="w-4 h-4 mr-2" />
-                  Sign out
-                </a>
+              <DropdownMenuItem
+                data-testid="button-mobile-logout"
+                onClick={() => logout()}
+              >
+                <LogOut className="w-4 h-4 mr-2" />
+                Sign out
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

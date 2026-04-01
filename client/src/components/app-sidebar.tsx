@@ -60,7 +60,7 @@ interface AppSidebarProps {
 
 export function AppSidebar({ role, isSystemAdmin = false, isPaused = false }: AppSidebarProps) {
   const [location] = useLocation();
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
 
   const isClient = role === "CLIENT";
   const isAdminOrOwner = role === "OWNER" || role === "ADMIN";
@@ -289,11 +289,12 @@ export function AppSidebar({ role, isSystemAdmin = false, isPaused = false }: Ap
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent side="top" align="start" className="w-56">
-            <DropdownMenuItem asChild>
-              <a href="/api/logout" data-testid="button-logout">
-                <LogOut className="w-4 h-4 mr-2" />
-                Sign out
-              </a>
+            <DropdownMenuItem
+              data-testid="button-logout"
+              onClick={() => logout()}
+            >
+              <LogOut className="w-4 h-4 mr-2" />
+              Sign out
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

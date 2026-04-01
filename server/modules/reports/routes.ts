@@ -1,5 +1,5 @@
 import type { Express } from "express";
-import { isAuthenticated } from "../../replit_integrations/auth";
+import { isAuthenticated } from "../../auth";
 import { requireRole } from "../../authz";
 import { storage } from "../../storage";
 import { emitEvent } from "../../core/events/helpers";

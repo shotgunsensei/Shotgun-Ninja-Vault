@@ -1,6 +1,6 @@
 import type { Express } from "express";
 import { type Server } from "http";
-import { setupAuth, registerAuthRoutes } from "./replit_integrations/auth";
+import { setupSession, registerAuthRoutes } from "./auth";
 import { registerCoreRoutes } from "./modules/core/routes";
 import { registerEvidenceRoutes } from "./modules/evidence/routes";
 import { registerLicenseRoutes } from "./modules/license/routes";
@@ -151,7 +151,7 @@ export async function registerRoutes(
   if (!isApiOnly) {
     startWebhookWorker();
 
-    await setupAuth(app);
+    setupSession(app);
     registerAuthRoutes(app);
     registerReviewerRoutes(app);
     registerAccountRoutes(app);

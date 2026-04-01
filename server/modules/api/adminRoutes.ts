@@ -1,5 +1,5 @@
 import type { Express, Request, Response } from "express";
-import { isAuthenticated } from "../../replit_integrations/auth";
+import { isAuthenticated } from "../../auth";
 import { requireRole } from "../../authz";
 import { storage } from "../../storage";
 import { generateToken, hashToken } from "../../core/apiAuth";

@@ -1,6 +1,6 @@
 import type { Express } from "express";
 import { storage } from "../../storage";
-import { isAuthenticated } from "../../replit_integrations/auth";
+import { isAuthenticated } from "../../auth";
 import { requireRole } from "../../authz";
 import { getStripe, getStripePriceId, isStripeConfigured } from "./stripe";
 import { z } from "zod";

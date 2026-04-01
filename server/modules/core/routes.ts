@@ -1,6 +1,6 @@
 import type { Express } from "express";
 import { storage } from "../../storage";
-import { isAuthenticated } from "../../replit_integrations/auth";
+import { isAuthenticated } from "../../auth";
 import { requireUser, requireTenant, requireRole, requireClientAccess } from "../../authz";
 import { z } from "zod";
 import {

@@ -1,7 +1,7 @@
 import type { Express, Request, Response } from "express";
 import OpenAI from "openai";
 import { z } from "zod";
-import { isAuthenticated } from "../../replit_integrations/auth";
+import { isAuthenticated } from "../../auth";
 import { requireTenant, requireRole } from "../../authz";
 import { requireNotPaused } from "../../core/middleware/requireNotPaused";
 

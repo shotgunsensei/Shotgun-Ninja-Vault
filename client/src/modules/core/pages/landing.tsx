@@ -50,7 +50,7 @@ export default function LandingPage() {
           <div className="flex items-center gap-2">
             <ThemeToggle />
             <Button asChild data-testid="button-login">
-              <a href="/api/login">
+              <a href="/login">
                 Sign in
                 <ArrowRight className="w-4 h-4 ml-1" />
               </a>
@@ -75,7 +75,7 @@ export default function LandingPage() {
               </p>
               <div className="flex flex-wrap items-center justify-center gap-3">
                 <Button size="lg" asChild data-testid="button-get-started">
-                  <a href="/api/login">
+                  <a href="/register">
                     Get Started
                     <ArrowRight className="w-4 h-4 ml-1" />
                   </a>
@@ -130,7 +130,7 @@ export default function LandingPage() {
               Start with a free account and upgrade as your team grows.
             </p>
             <Button size="lg" asChild>
-              <a href="/api/login">
+              <a href="/register">
                 Get Started Free
                 <ArrowRight className="w-4 h-4 ml-1" />
               </a>

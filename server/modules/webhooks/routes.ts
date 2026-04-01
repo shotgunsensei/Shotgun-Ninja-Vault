@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import crypto from "crypto";
 import { storage } from "../../storage";
-import { isAuthenticated } from "../../replit_integrations/auth";
+import { isAuthenticated } from "../../auth";
 import { requireRole } from "../../authz";
 import { emitEvent } from "../../core/events/helpers";
 import { z } from "zod";

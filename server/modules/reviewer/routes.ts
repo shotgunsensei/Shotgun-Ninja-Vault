@@ -1,5 +1,5 @@
 import type { Express } from "express";
-import { authStorage } from "../../replit_integrations/auth/storage";
+import { upsertUser, hashPassword } from "../../auth/authService";
 import { db } from "../../db";
 import { tenants, tenantMembers } from "@shared/schema";
 import { eq, and } from "drizzle-orm";
@@ -8,12 +8,16 @@ const REVIEWER_USER_ID = "reviewer-google-play";
 const REVIEWER_TENANT_SLUG = "reviewer-demo";
 
 async function ensureReviewerSetup() {
-  await authStorage.upsertUser({
+  const password = process.env.REVIEWER_PASSWORD || "ReviewerPass1!";
+  const passwordHash = await hashPassword(password);
+
+  await upsertUser({
     id: REVIEWER_USER_ID,
     email: "reviewer@techdeck.app",
     firstName: "Reviewer",
     lastName: "Account",
     profileImageUrl: null,
+    passwordHash,
   });
 
   const [existingTenant] = await db
@@ -61,7 +65,7 @@ async function ensureReviewerSetup() {
 }
 
 export function registerReviewerRoutes(app: Express): void {
-  app.post("/api/reviewer-login", async (req, res) => {
+  app.post("/api/reviewer-login", async (req: any, res) => {
     const expectedUser = process.env.REVIEWER_USERNAME;
     const expectedPass = process.env.REVIEWER_PASSWORD;
 
@@ -78,24 +82,10 @@ export function registerReviewerRoutes(app: Express): void {
     try {
       await ensureReviewerSetup();
 
-      const user = {
-        claims: {
-          sub: REVIEWER_USER_ID,
-          email: "reviewer@techdeck.app",
-          first_name: "Reviewer",
-          last_name: "Account",
-        },
-        access_token: "reviewer-token",
-        expires_at: Math.floor(Date.now() / 1000) + 86400 * 365,
-      };
+      req.session.userId = REVIEWER_USER_ID;
+      req.session.mfaPending = false;
 
-      req.login(user, (err) => {
-        if (err) {
-          console.error("[reviewer] Login error:", err);
-          return res.status(500).json({ message: "Login failed" });
-        }
-        res.json({ success: true });
-      });
+      res.json({ success: true });
     } catch (error) {
       console.error("[reviewer] Setup error:", error);
       res.status(500).json({ message: "Setup failed" });

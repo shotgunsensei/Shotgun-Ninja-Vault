@@ -1,5 +1,5 @@
 import type { Express } from "express";
-import { isAuthenticated } from "../../replit_integrations/auth/replitAuth";
+import { isAuthenticated } from "../../auth";
 import { db } from "../../db";
 import { tenants, tenantMembers } from "@shared/schema";
 import { users } from "@shared/models/auth";
@@ -10,7 +10,7 @@ import path from "path";
 export function registerAccountRoutes(app: Express): void {
   app.delete("/api/account", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user?.claims?.sub || req.session?.userId;
 
       const memberships = await db
         .select({
@@ -57,10 +57,8 @@ export function registerAccountRoutes(app: Express): void {
 
       await db.delete(users).where(eq(users.id, userId));
 
-      req.logout(() => {
-        req.session?.destroy(() => {});
-        res.json({ success: true });
-      });
+      req.session?.destroy(() => {});
+      res.json({ success: true });
     } catch (error) {
       console.error("[account] Delete error:", error);
       res.status(500).json({ message: "Failed to delete account" });
@@ -69,7 +67,7 @@ export function registerAccountRoutes(app: Express): void {
 
   app.get("/api/account/info", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user?.claims?.sub || req.session?.userId;
 
       const memberships = await db
         .select({

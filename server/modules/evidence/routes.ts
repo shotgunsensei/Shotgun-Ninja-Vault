@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { storage } from "../../storage";
 import { fileStorage } from "../../fileStorage";
-import { isAuthenticated } from "../../replit_integrations/auth";
+import { isAuthenticated } from "../../auth";
 import { requireTenant, requireRole } from "../../authz";
 import multer from "multer";
 import path from "path";

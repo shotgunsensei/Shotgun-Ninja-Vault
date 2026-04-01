@@ -20,7 +20,7 @@ The application follows a modular, multi-tenant architecture with strict data is
 - **Frontend**: React, Vite, wouter, TanStack Query, shadcn/ui, Tailwind CSS.
 - **Backend**: Express.js with TypeScript, providing a robust API.
 - **Database**: PostgreSQL with Drizzle ORM for type-safe data interaction.
-- **Authentication**: Integrates Replit Auth (OIDC) via `passport.js`.
+- **Authentication**: Custom email/password authentication with TOTP-based MFA. Uses bcrypt for password hashing (12 salt rounds), `otplib` for TOTP generation/verification, `qrcode` for QR code rendering, and `connect-pg-simple` for PostgreSQL session storage. Features account lockout (5 failed attempts, 15-min lockout), rate limiting on auth endpoints, session regeneration on login/register, and hashed recovery codes. Auth module located at `server/auth/`.
 - **Authorization**: Fine-grained role-based access control (OWNER, ADMIN, TECH, CLIENT) and client-specific permissions.
 - **File Storage**: Local disk storage with a `StorageProvider` interface, featuring SHA-256 deduplication for evidence files.
 - **Module System**: Dynamic module registry defining six core modules (`core`, `evidence`, `license`, `webhooks`, `status`, `reports`), each capable of registering server routes and client pages.
@@ -29,7 +29,7 @@ The application follows a modular, multi-tenant architecture with strict data is
 - **API Access Module**: Manages API tokens with scopes, enabling programmatic access to specific endpoints.
 - **Billing Module**: Integrates with Stripe for subscription management (plans: solo, pro, msp, enterprise), usage tracking, and plan enforcement. Includes a payment grace period system for paused accounts and scheduled tenant deletion.
 - **System Admin Module**: Provides system-wide administrative functions for managing tenants and users.
-- **Pending Invitations**: Supports auto-joining users to tenants upon OIDC login via pending invitations.
+- **Pending Invitations**: Supports auto-joining users to tenants upon registration via pending invitations.
 - **CSV Import/Export**: Backend endpoints for CSV template downloads and bulk import of clients, sites, and assets with per-row validation and audit trails.
 - **IT Ops Console Module**: AI-powered operations tool for senior engineers and MSPs. Features five modes (Quick Fix, Script Builder, Deep Dive, Network Analysis, System Design) with structured response engine (Summary → Action Steps → Commands → Advanced Insight). Uses OpenAI via Replit AI Integrations with streaming SSE responses and retry logic on connection failures. Dark terminal-style UI (expert-only, no beginner mode). Features: syntax highlighting for code blocks (PowerShell/Bash/Python), Copy All button, per-block copy buttons, localStorage-cached last 5 queries, Knowledge Vault (save/tag/search/load responses locally), export as Markdown or text file, Run Again button. Role-gated to OWNER/ADMIN/TECH with Zod input validation, XSS-safe rendering, size limits, and client disconnect handling.
 - **Core MSP Functionality**:
@@ -44,7 +44,10 @@ The application follows a modular, multi-tenant architecture with strict data is
 
 ## External Dependencies
 - **PostgreSQL**: Primary database.
-- **Replit Auth (OIDC)**: User authentication.
+- **bcrypt**: Password hashing.
+- **otplib**: TOTP MFA generation and verification.
+- **qrcode**: QR code generation for MFA setup.
+- **connect-pg-simple**: PostgreSQL session store.
 - **Express.js**: Backend web framework.
 - **React**: Frontend library.
 - **Vite**: Frontend build tool.

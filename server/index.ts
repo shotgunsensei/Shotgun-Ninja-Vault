@@ -61,8 +61,7 @@ app.use("/api/v1", createRateLimiter("api-v1", 60_000, 60));
 
 app.use("/api/public", createRateLimiter("api-public", 60_000, 60));
 
-app.use("/api/login", createRateLimiter("auth", 60_000, 10));
-app.use("/api/callback", createRateLimiter("auth", 60_000, 10));
+app.use("/api/auth", createRateLimiter("auth", 60_000, 20));
 app.use("/api/api-tokens", createRateLimiter("api-tokens", 60_000, 20));
 
 app.use(

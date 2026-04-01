@@ -62,6 +62,9 @@ import NotFound from "@/pages/not-found";
 import PrivacyPage from "@/pages/privacy";
 import ReviewerLoginPage from "@/pages/reviewer-login";
 import DeleteAccountPage from "@/pages/delete-account";
+import LoginPage from "@/pages/login";
+import RegisterPage from "@/pages/register";
+import MfaSetupPage from "@/pages/mfa-setup";
 
 import type { TenantWithMember } from "@/lib/types";
 
@@ -194,6 +197,7 @@ function AuthenticatedApp() {
                 {!isClient && <Route path="/reports" component={ReportsPage} />}
                 {!isClient && <Route path="/itops" component={ItOpsConsolePage} />}
                 {!isClient && <Route path="/settings" component={SettingsPage} />}
+                <Route path="/mfa-setup" component={MfaSetupPage} />
                 {isSystemAdmin && <Route path="/system-admin" component={AdminPanelPage} />}
                 <Route component={NotFound} />
               </Switch>
@@ -212,8 +216,10 @@ function AppRouter() {
     <Switch>
       <Route path="/status/:slug" component={PublicStatusPage} />
       <Route path="/privacy" component={PrivacyPage} />
-      <Route path="/login" component={ReviewerLoginPage} />
       <Route path="/delete-account" component={DeleteAccountPage} />
+      <Route path="/login" component={LoginPage} />
+      <Route path="/register" component={RegisterPage} />
+      <Route path="/reviewer-login" component={ReviewerLoginPage} />
       <Route>
         {() => {
           if (isLoading) {

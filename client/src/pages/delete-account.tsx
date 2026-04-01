@@ -101,7 +101,7 @@ export default function DeleteAccountPage() {
             You need to sign in to delete your account and data.
           </p>
           <Button asChild data-testid="button-sign-in-to-delete">
-            <a href="/api/login">Sign In</a>
+            <a href="/login">Sign In</a>
           </Button>
         </main>
       </div>
