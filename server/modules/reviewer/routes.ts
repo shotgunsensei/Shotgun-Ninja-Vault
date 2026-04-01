@@ -1,5 +1,7 @@
-import type { Express } from "express";
+import type { Express, Request, Response } from "express";
 import { upsertUser, hashPassword } from "../../auth/authService";
+import { enforceHttps } from "../../auth/httpsEnforce";
+import { csrfProtection } from "../../auth/csrf";
 import { db } from "../../db";
 import { tenants, tenantMembers } from "@shared/schema";
 import { eq, and } from "drizzle-orm";
@@ -65,7 +67,7 @@ async function ensureReviewerSetup() {
 }
 
 export function registerReviewerRoutes(app: Express): void {
-  app.post("/api/reviewer-login", async (req: any, res) => {
+  app.post("/api/reviewer-login", enforceHttps, csrfProtection, async (req: Request, res: Response) => {
     const expectedUser = process.env.REVIEWER_USERNAME;
     const expectedPass = process.env.REVIEWER_PASSWORD;
 
