@@ -6,7 +6,8 @@ import bcrypt from "bcrypt";
 import rateLimit from "express-rate-limit";
 import { storage } from "../../storage";
 import { fileStorage } from "../../fileStorage";
-import { isAuthenticated, requireTenant, requireRole } from "../../authz";
+import { isAuthenticated } from "../../auth";
+import { requireTenant, requireRole } from "../../authz";
 import { requireNotPaused } from "../../core/middleware/requireNotPaused";
 import type { PlanLimits } from "@shared/schema";
 
@@ -67,7 +68,7 @@ export function registerSecureIntakeRoutes(app: Express) {
     }
   });
 
-  app.post("/api/secure-intake/spaces", isAuthenticated, requireTenant(), requireRole("OWNER", "ADMIN"), requireNotPaused, async (req: Request, res: Response) => {
+  app.post("/api/secure-intake/spaces", isAuthenticated, requireTenant(), requireRole("OWNER", "ADMIN"), requireNotPaused(), async (req: Request, res: Response) => {
     try {
       const { tenantId } = (req as any).tenantCtx;
       const limits = await getTenantPlanLimits(tenantId);
@@ -98,7 +99,7 @@ export function registerSecureIntakeRoutes(app: Express) {
     }
   });
 
-  app.patch("/api/secure-intake/spaces/:id", isAuthenticated, requireTenant(), requireRole("OWNER", "ADMIN"), requireNotPaused, async (req: Request, res: Response) => {
+  app.patch("/api/secure-intake/spaces/:id", isAuthenticated, requireTenant(), requireRole("OWNER", "ADMIN"), requireNotPaused(), async (req: Request, res: Response) => {
     try {
       const { tenantId } = (req as any).tenantCtx;
       const space = await storage.updateIntakeSpace(tenantId, req.params.id, req.body);
@@ -110,7 +111,7 @@ export function registerSecureIntakeRoutes(app: Express) {
     }
   });
 
-  app.delete("/api/secure-intake/spaces/:id", isAuthenticated, requireTenant(), requireRole("OWNER", "ADMIN"), requireNotPaused, async (req: Request, res: Response) => {
+  app.delete("/api/secure-intake/spaces/:id", isAuthenticated, requireTenant(), requireRole("OWNER", "ADMIN"), requireNotPaused(), async (req: Request, res: Response) => {
     try {
       const { tenantId } = (req as any).tenantCtx;
       await storage.deleteIntakeSpace(tenantId, req.params.id);
@@ -134,7 +135,7 @@ export function registerSecureIntakeRoutes(app: Express) {
     }
   });
 
-  app.post("/api/secure-intake/requests", isAuthenticated, requireTenant(), requireRole("OWNER", "ADMIN", "TECH"), requireNotPaused, async (req: Request, res: Response) => {
+  app.post("/api/secure-intake/requests", isAuthenticated, requireTenant(), requireRole("OWNER", "ADMIN", "TECH"), requireNotPaused(), async (req: Request, res: Response) => {
     try {
       const { tenantId, userId } = (req as any).tenantCtx;
       const body = z.object({
@@ -183,8 +184,7 @@ export function registerSecureIntakeRoutes(app: Express) {
       await logIntakeAudit(tenantId, "request.created", req, { objectType: "upload_request", objectId: request.id, metadata: { uploaderEmail: body.uploaderEmail } });
 
       const domain = process.env.REPLIT_DOMAINS?.split(",")[0] || req.hostname;
-      const tenant = await storage.getTenantById(tenantId);
-      const uploadUrl = `https://${domain}/t/${tenant?.slug}/secure-intake/upload/${token}`;
+      const uploadUrl = `https://${domain}/t/upload/${token}`;
 
       res.status(201).json({ ...request, uploadUrl });
     } catch (error: any) {
@@ -194,7 +194,7 @@ export function registerSecureIntakeRoutes(app: Express) {
     }
   });
 
-  app.post("/api/secure-intake/requests/:id/revoke", isAuthenticated, requireTenant(), requireRole("OWNER", "ADMIN", "TECH"), requireNotPaused, async (req: Request, res: Response) => {
+  app.post("/api/secure-intake/requests/:id/revoke", isAuthenticated, requireTenant(), requireRole("OWNER", "ADMIN", "TECH"), requireNotPaused(), async (req: Request, res: Response) => {
     try {
       const { tenantId } = (req as any).tenantCtx;
       await storage.revokeUploadRequest(tenantId, req.params.id);
@@ -236,7 +236,7 @@ export function registerSecureIntakeRoutes(app: Express) {
     }
   });
 
-  app.patch("/api/secure-intake/files/:id", isAuthenticated, requireTenant(), requireRole("OWNER", "ADMIN", "TECH"), requireNotPaused, async (req: Request, res: Response) => {
+  app.patch("/api/secure-intake/files/:id", isAuthenticated, requireTenant(), requireRole("OWNER", "ADMIN", "TECH"), requireNotPaused(), async (req: Request, res: Response) => {
     try {
       const { tenantId, userId } = (req as any).tenantCtx;
       const body = z.object({
@@ -258,7 +258,7 @@ export function registerSecureIntakeRoutes(app: Express) {
     }
   });
 
-  app.delete("/api/secure-intake/files/:id", isAuthenticated, requireTenant(), requireRole("OWNER", "ADMIN"), requireNotPaused, async (req: Request, res: Response) => {
+  app.delete("/api/secure-intake/files/:id", isAuthenticated, requireTenant(), requireRole("OWNER", "ADMIN"), requireNotPaused(), async (req: Request, res: Response) => {
     try {
       const { tenantId } = (req as any).tenantCtx;
       const file = await storage.getIntakeFileById(tenantId, req.params.id);
@@ -308,7 +308,7 @@ export function registerSecureIntakeRoutes(app: Express) {
     }
   });
 
-  app.put("/api/secure-intake/policies", isAuthenticated, requireTenant(), requireRole("OWNER", "ADMIN"), requireNotPaused, async (req: Request, res: Response) => {
+  app.put("/api/secure-intake/policies", isAuthenticated, requireTenant(), requireRole("OWNER", "ADMIN"), requireNotPaused(), async (req: Request, res: Response) => {
     try {
       const { tenantId } = (req as any).tenantCtx;
       const body = z.object({
@@ -419,7 +419,7 @@ export function registerSecureIntakeRoutes(app: Express) {
 
         if (allowedTypes && allowedTypes.length > 0) {
           const ext = file.originalname.split(".").pop()?.toLowerCase();
-          if (ext && !allowedTypes.includes(ext)) continue;
+          if (!ext || !allowedTypes.includes(ext)) continue;
         }
 
         const sha256 = crypto.createHash("sha256").update(file.buffer).digest("hex");

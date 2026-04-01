@@ -52,6 +52,15 @@ import AccountSecurityPage from "@/pages/account-security";
 import { RecurringTemplatesPage } from "@/modules/recurring";
 import { ItOpsConsolePage } from "@/modules/itops";
 import {
+  IntakeDashboardPage,
+  IntakeSpacesPage,
+  IntakeRequestsPage,
+  IntakeFilesPage,
+  IntakeAuditPage,
+  IntakePoliciesPage,
+  IntakeStoragePage,
+} from "@/modules/secure-intake";
+import {
   MobileLayout,
   MobileTicketsPage,
   MobileTicketDetailPage,
@@ -66,6 +75,7 @@ import DeleteAccountPage from "@/pages/delete-account";
 import LoginPage from "@/pages/login";
 import RegisterPage from "@/pages/register";
 import MfaSetupPage from "@/pages/mfa-setup";
+import ExternalUploadPage from "@/pages/external-upload";
 
 import type { TenantWithMember } from "@/lib/types";
 
@@ -197,6 +207,13 @@ function AuthenticatedApp() {
                 {isAdminOrOwner && <Route path="/billing/cancel" component={BillingCancelPage} />}
                 {!isClient && <Route path="/reports" component={ReportsPage} />}
                 {!isClient && <Route path="/itops" component={ItOpsConsolePage} />}
+                {!isClient && <Route path="/secure-intake" component={IntakeDashboardPage} />}
+                {!isClient && <Route path="/secure-intake/spaces" component={IntakeSpacesPage} />}
+                {!isClient && <Route path="/secure-intake/requests" component={IntakeRequestsPage} />}
+                {!isClient && <Route path="/secure-intake/files" component={IntakeFilesPage} />}
+                {isAdminOrOwner && <Route path="/secure-intake/audit" component={IntakeAuditPage} />}
+                {isAdminOrOwner && <Route path="/secure-intake/policies" component={IntakePoliciesPage} />}
+                {isAdminOrOwner && <Route path="/secure-intake/storage" component={IntakeStoragePage} />}
                 {!isClient && <Route path="/settings" component={SettingsPage} />}
                 <Route path="/account-security" component={AccountSecurityPage} />
                 <Route path="/mfa-setup" component={MfaSetupPage} />
@@ -217,6 +234,7 @@ function AppRouter() {
   return (
     <Switch>
       <Route path="/status/:slug" component={PublicStatusPage} />
+      <Route path="/t/upload/:token" component={ExternalUploadPage} />
       <Route path="/privacy" component={PrivacyPage} />
       <Route path="/delete-account" component={DeleteAccountPage} />
       <Route path="/login" component={LoginPage} />

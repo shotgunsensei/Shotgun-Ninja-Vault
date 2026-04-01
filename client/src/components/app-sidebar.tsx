@@ -25,6 +25,7 @@ import {
   Wrench,
   Smartphone,
   Terminal,
+  Upload,
 } from "lucide-react";
 import logoImage from "@assets/ShotgunNinjaVaulticon_1770412982737.png";
 import { useLocation, Link } from "wouter";
@@ -98,6 +99,16 @@ export function AppSidebar({ role, isSystemAdmin = false, isPaused = false }: Ap
   const licenseNavItems = isPaused ? [] : [
     { title: "Licenses", url: "/licenses", icon: Key, show: isAdminOrOwner },
     { title: "Developer", url: "/licenses/developer", icon: Code, show: isAdminOrOwner },
+  ].filter((item) => item.show);
+
+  const intakeNavItems = isPaused ? [] : isClient ? [] : [
+    { title: "Secure Intake", url: "/secure-intake", icon: Upload, show: true },
+    { title: "Intake Spaces", url: "/secure-intake/spaces", icon: FileText, show: true },
+    { title: "Upload Requests", url: "/secure-intake/requests", icon: Upload, show: true },
+    { title: "Intake Files", url: "/secure-intake/files", icon: FileText, show: true },
+    { title: "Intake Audit", url: "/secure-intake/audit", icon: Shield, show: isAdminOrOwner },
+    { title: "Intake Policies", url: "/secure-intake/policies", icon: ShieldCheck, show: isAdminOrOwner },
+    { title: "Intake Storage", url: "/secure-intake/storage", icon: Server, show: isAdminOrOwner },
   ].filter((item) => item.show);
 
   const adminNavItems = isPaused
@@ -208,6 +219,32 @@ export function AppSidebar({ role, isSystemAdmin = false, isPaused = false }: Ap
                       isActive={
                         item.url === "/licenses"
                           ? location === "/licenses"
+                          : location.startsWith(item.url)
+                      }
+                    >
+                      <Link href={item.url} data-testid={`nav-${item.title.toLowerCase().replace(/\s+/g, "-")}`}>
+                        <item.icon className="w-4 h-4" />
+                        <span>{item.title}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
+        {intakeNavItems.length > 0 && (
+          <SidebarGroup>
+            <SidebarGroupLabel>Secure Intake</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {intakeNavItems.map((item) => (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={
+                        item.url === "/secure-intake"
+                          ? location === "/secure-intake"
                           : location.startsWith(item.url)
                       }
                     >

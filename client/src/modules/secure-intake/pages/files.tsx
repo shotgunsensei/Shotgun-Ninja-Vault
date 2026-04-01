@@ -44,6 +44,7 @@ export default function IntakeFilesPage() {
       queryClient.invalidateQueries({ queryKey: ["/api/secure-intake/files"] });
       toast({ title: "File updated" });
     },
+    onError: (err: any) => toast({ title: "Error", description: err.message, variant: "destructive" }),
   });
 
   const deleteMutation = useMutation({
@@ -53,6 +54,7 @@ export default function IntakeFilesPage() {
       queryClient.invalidateQueries({ queryKey: ["/api/secure-intake/dashboard"] });
       toast({ title: "File deleted" });
     },
+    onError: (err: any) => toast({ title: "Error", description: err.message, variant: "destructive" }),
   });
 
   const downloadFile = (id: string, name: string) => {

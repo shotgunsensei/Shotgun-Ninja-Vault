@@ -71,10 +71,14 @@ export default function IntakeRequestsPage() {
   const copyLink = async (token: string, id: string) => {
     const domain = window.location.origin;
     const url = `${domain}/t/upload/${token}`;
-    await navigator.clipboard.writeText(url);
-    setCopiedId(id);
-    toast({ title: "Upload link copied" });
-    setTimeout(() => setCopiedId(null), 2000);
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopiedId(id);
+      toast({ title: "Upload link copied" });
+      setTimeout(() => setCopiedId(null), 2000);
+    } catch {
+      toast({ title: "Copy failed", description: "Please copy the link manually", variant: "destructive" });
+    }
   };
 
   const statusColor = (status: string) => {
