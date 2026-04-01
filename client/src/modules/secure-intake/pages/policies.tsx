@@ -7,13 +7,14 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Breadcrumbs } from "@/components/breadcrumbs";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { Shield, Save } from "lucide-react";
+import { Shield, Save, AlertCircle } from "lucide-react";
 
 export default function IntakePoliciesPage() {
   const { toast } = useToast();
-  const { data: policy, isLoading } = useQuery<any>({ queryKey: ["/api/secure-intake/policies"] });
+  const { data: policy, isLoading, error } = useQuery<any>({ queryKey: ["/api/secure-intake/policies"] });
   const [form, setForm] = useState({
     defaultMaxFileSizeMb: 25,
     defaultAllowedFileTypes: "",
@@ -60,13 +61,36 @@ export default function IntakePoliciesPage() {
     });
   };
 
-  if (isLoading) return <div className="p-6"><Skeleton className="h-8 w-64 mb-4" /><Skeleton className="h-48" /></div>;
+  if (isLoading) {
+    return (
+      <div className="p-6 space-y-4 max-w-2xl">
+        <Skeleton className="h-4 w-48" />
+        <Skeleton className="h-8 w-64" />
+        <Skeleton className="h-48" />
+        <Skeleton className="h-32" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-6 space-y-4">
+        <Breadcrumbs items={[{ label: "Secure Intake", href: "/secure-intake" }, { label: "Policies" }]} />
+        <div className="flex flex-col items-center justify-center py-16 text-center">
+          <AlertCircle className="w-10 h-10 text-muted-foreground opacity-40 mb-3" />
+          <p className="text-sm font-medium">Failed to load policies</p>
+          <p className="text-xs text-muted-foreground mt-1">Please try again later.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 space-y-6 max-w-2xl">
       <div>
-        <h1 className="text-2xl font-bold" data-testid="text-policies-title">Intake Policies</h1>
-        <p className="text-muted-foreground">Configure default security and compliance settings</p>
+        <Breadcrumbs items={[{ label: "Secure Intake", href: "/secure-intake" }, { label: "Policies" }]} />
+        <h1 className="text-2xl font-bold tracking-tight" data-testid="text-policies-title">Intake Policies</h1>
+        <p className="text-sm text-muted-foreground">Configure default security and compliance settings</p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
@@ -86,11 +110,11 @@ export default function IntakePoliciesPage() {
             </div>
             <div className="space-y-2">
               <Label>Default Retention (days)</Label>
-              <Input type="number" min={1} value={form.defaultRetentionDays} onChange={(e) => setForm({ ...form, defaultRetentionDays: e.target.value })} placeholder="No automatic deletion" data-testid="input-policy-retention" />
+              <Input type="number" min={1} max={3650} value={form.defaultRetentionDays} onChange={(e) => setForm({ ...form, defaultRetentionDays: e.target.value })} placeholder="No automatic deletion" data-testid="input-policy-retention" />
             </div>
             <div className="space-y-2">
               <Label>Default Link Expiration (hours)</Label>
-              <Input type="number" min={1} value={form.defaultExpirationHours} onChange={(e) => setForm({ ...form, defaultExpirationHours: parseInt(e.target.value) || 72 })} data-testid="input-policy-expiration" />
+              <Input type="number" min={1} max={8760} value={form.defaultExpirationHours} onChange={(e) => setForm({ ...form, defaultExpirationHours: parseInt(e.target.value) || 72 })} data-testid="input-policy-expiration" />
             </div>
           </CardContent>
         </Card>
@@ -123,7 +147,7 @@ export default function IntakePoliciesPage() {
               <Shield className="w-5 h-5 text-blue-500" />
               <CardTitle className="text-base">Compliance Notice</CardTitle>
             </div>
-            <CardDescription>Optional notice shown on upload pages and in audit records</CardDescription>
+            <CardDescription>Optional notice shown on upload pages</CardDescription>
           </CardHeader>
           <CardContent>
             <Textarea value={form.complianceNotice} onChange={(e) => setForm({ ...form, complianceNotice: e.target.value })} rows={4} placeholder="e.g., By uploading files, you acknowledge that this system includes security-focused features intended to support regulated document intake workflows..." data-testid="input-compliance-notice" />

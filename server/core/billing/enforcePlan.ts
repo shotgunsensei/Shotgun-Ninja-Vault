@@ -14,7 +14,9 @@ function getCurrentMonthKey(): string {
   return new Date().toISOString().slice(0, 7);
 }
 
-export function requireFeature(feature: "api" | "portal" | "status" | "webhooks" | "reports") {
+export { getTenantPlanLimits };
+
+export function requireFeature(feature: "api" | "portal" | "status" | "webhooks" | "reports" | "intake") {
   return async (req: any, res: Response, next: NextFunction) => {
     try {
       const tenantId = req.tenantCtx?.tenantId;
@@ -29,6 +31,7 @@ export function requireFeature(feature: "api" | "portal" | "status" | "webhooks"
         status: "statusEnabled",
         webhooks: "webhooksMax",
         reports: "reportsPerMonth",
+        intake: "intakeEnabled",
       };
 
       const limitKey = featureMap[feature];
@@ -51,7 +54,7 @@ export function requireFeature(feature: "api" | "portal" | "status" | "webhooks"
   };
 }
 
-export function checkLimit(limitType: "usersMax" | "webhooksMax" | "reportsPerMonth" | "storageGb") {
+export function checkLimit(limitType: "usersMax" | "webhooksMax" | "reportsPerMonth" | "storageGb" | "intakeSpacesMax") {
   return async (req: any, res: Response, next: NextFunction) => {
     try {
       const tenantId = req.tenantCtx?.tenantId;
@@ -84,6 +87,10 @@ export function checkLimit(limitType: "usersMax" | "webhooksMax" | "reportsPerMo
           const monthKey = getCurrentMonthKey();
           const usage = await storage.getOrCreateUsageCounter(tenantId, monthKey);
           currentValue = Math.ceil(usage.evidenceBytesStored / (1024 * 1024 * 1024));
+          break;
+        }
+        case "intakeSpacesMax": {
+          currentValue = await storage.getIntakeSpaceCount(tenantId);
           break;
         }
       }

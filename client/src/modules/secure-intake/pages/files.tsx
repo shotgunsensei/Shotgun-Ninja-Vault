@@ -6,10 +6,11 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Breadcrumbs } from "@/components/breadcrumbs";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useState } from "react";
-import { FileText, Download, Trash2, CheckCircle, XCircle, Eye, Search } from "lucide-react";
+import { FileText, Download, Trash2, CheckCircle, XCircle, Search, AlertCircle } from "lucide-react";
 
 function formatBytes(bytes: number): string {
   if (bytes === 0) return "0 B";
@@ -24,14 +25,14 @@ export default function IntakeFilesPage() {
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [spaceFilter, setSpaceFilter] = useState("");
-  const { data: files, isLoading } = useQuery<any[]>({
+  const { data: files, isLoading, error } = useQuery<any[]>({
     queryKey: ["/api/secure-intake/files", { query, status: statusFilter, spaceId: spaceFilter }],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (query) params.set("query", query);
       if (statusFilter) params.set("status", statusFilter);
       if (spaceFilter) params.set("spaceId", spaceFilter);
-      const res = await fetch(`/api/secure-intake/files?${params}`);
+      const res = await fetch(`/api/secure-intake/files?${params}`, { credentials: "include" });
       if (!res.ok) throw new Error("Failed to load files");
       return res.json();
     },
@@ -42,6 +43,7 @@ export default function IntakeFilesPage() {
     mutationFn: ({ id, ...data }: any) => apiRequest("PATCH", `/api/secure-intake/files/${id}`, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/secure-intake/files"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/secure-intake/dashboard"] });
       toast({ title: "File updated" });
     },
     onError: (err: any) => toast({ title: "Error", description: err.message, variant: "destructive" }),
@@ -64,24 +66,47 @@ export default function IntakeFilesPage() {
     link.click();
   };
 
-  const statusColor = (status: string) => {
+  const statusVariant = (status: string) => {
     switch (status) {
-      case "uploaded": return "default";
-      case "reviewed": return "secondary";
-      case "approved": return "outline";
-      case "rejected": return "destructive";
-      case "archived": return "secondary";
-      default: return "secondary";
+      case "uploaded": return "default" as const;
+      case "reviewed": return "secondary" as const;
+      case "approved": return "outline" as const;
+      case "rejected": return "destructive" as const;
+      case "archived": return "secondary" as const;
+      default: return "secondary" as const;
     }
   };
 
-  if (isLoading) return <div className="p-6"><Skeleton className="h-8 w-64 mb-4" /><Skeleton className="h-48" /></div>;
+  if (isLoading) {
+    return (
+      <div className="p-6 space-y-4">
+        <Skeleton className="h-4 w-48" />
+        <Skeleton className="h-8 w-64" />
+        <div className="flex gap-3"><Skeleton className="h-10 flex-1" /><Skeleton className="h-10 w-40" /><Skeleton className="h-10 w-44" /></div>
+        <Skeleton className="h-64" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-6 space-y-4">
+        <Breadcrumbs items={[{ label: "Secure Intake", href: "/secure-intake" }, { label: "Files" }]} />
+        <div className="flex flex-col items-center justify-center py-16 text-center">
+          <AlertCircle className="w-10 h-10 text-muted-foreground opacity-40 mb-3" />
+          <p className="text-sm font-medium">Failed to load files</p>
+          <p className="text-xs text-muted-foreground mt-1">Please try again later.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 space-y-6">
       <div>
-        <h1 className="text-2xl font-bold" data-testid="text-files-title">Uploaded Files</h1>
-        <p className="text-muted-foreground">Review and manage files received through secure intake</p>
+        <Breadcrumbs items={[{ label: "Secure Intake", href: "/secure-intake" }, { label: "Files" }]} />
+        <h1 className="text-2xl font-bold tracking-tight" data-testid="text-files-title">Uploaded Files</h1>
+        <p className="text-sm text-muted-foreground">Review and manage files received through secure intake</p>
       </div>
 
       <div className="flex gap-3 flex-wrap">
@@ -110,13 +135,11 @@ export default function IntakeFilesPage() {
       </div>
 
       {(!files || files.length === 0) ? (
-        <Card>
-          <CardContent className="py-12 text-center">
-            <FileText className="w-12 h-12 mx-auto mb-3 text-muted-foreground" />
-            <h3 className="font-medium mb-1">No files found</h3>
-            <p className="text-sm text-muted-foreground">Files will appear here when external users upload through secure links</p>
-          </CardContent>
-        </Card>
+        <div className="flex flex-col items-center justify-center py-16 text-center">
+          <FileText className="w-10 h-10 text-muted-foreground opacity-40 mb-3" />
+          <p className="text-sm font-medium">No files found</p>
+          <p className="text-xs text-muted-foreground mt-1">Files will appear here when external users upload through secure links</p>
+        </div>
       ) : (
         <Card>
           <Table>
@@ -127,7 +150,7 @@ export default function IntakeFilesPage() {
                 <TableHead>Size</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Uploaded</TableHead>
-                <TableHead>Actions</TableHead>
+                <TableHead className="w-[140px]">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -144,25 +167,29 @@ export default function IntakeFilesPage() {
                     <div className="text-sm">{file.uploaderName || "-"}</div>
                     {file.uploaderEmail && <div className="text-xs text-muted-foreground">{file.uploaderEmail}</div>}
                   </TableCell>
-                  <TableCell>{formatBytes(file.sizeBytes)}</TableCell>
+                  <TableCell className="text-sm">{formatBytes(file.sizeBytes)}</TableCell>
                   <TableCell>
-                    <Badge variant={statusColor(file.status) as any}>{file.status}</Badge>
+                    <Badge variant={statusVariant(file.status)}>{file.status}</Badge>
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">
                     {new Date(file.createdAt).toLocaleDateString()}
                   </TableCell>
                   <TableCell>
                     <div className="flex gap-1">
-                      <Button variant="ghost" size="icon" onClick={() => downloadFile(file.id, file.originalName)} data-testid={`button-download-${file.id}`}>
+                      <Button variant="ghost" size="icon" onClick={() => downloadFile(file.id, file.originalName)} data-testid={`button-download-${file.id}`} title="Download">
                         <Download className="w-4 h-4" />
                       </Button>
-                      <Button variant="ghost" size="icon" onClick={() => updateMutation.mutate({ id: file.id, status: "approved" })} data-testid={`button-approve-${file.id}`}>
-                        <CheckCircle className="w-4 h-4 text-green-600" />
-                      </Button>
-                      <Button variant="ghost" size="icon" onClick={() => updateMutation.mutate({ id: file.id, status: "rejected" })} data-testid={`button-reject-${file.id}`}>
-                        <XCircle className="w-4 h-4 text-red-600" />
-                      </Button>
-                      <Button variant="ghost" size="icon" onClick={() => { if (confirm("Delete this file?")) deleteMutation.mutate(file.id); }} data-testid={`button-delete-file-${file.id}`}>
+                      {file.status !== "approved" && (
+                        <Button variant="ghost" size="icon" onClick={() => updateMutation.mutate({ id: file.id, status: "approved" })} data-testid={`button-approve-${file.id}`} title="Approve">
+                          <CheckCircle className="w-4 h-4 text-green-600" />
+                        </Button>
+                      )}
+                      {file.status !== "rejected" && (
+                        <Button variant="ghost" size="icon" onClick={() => updateMutation.mutate({ id: file.id, status: "rejected" })} data-testid={`button-reject-${file.id}`} title="Reject">
+                          <XCircle className="w-4 h-4 text-red-600" />
+                        </Button>
+                      )}
+                      <Button variant="ghost" size="icon" onClick={() => { if (confirm("Permanently delete this file?")) deleteMutation.mutate(file.id); }} data-testid={`button-delete-file-${file.id}`} title="Delete">
                         <Trash2 className="w-4 h-4 text-destructive" />
                       </Button>
                     </div>

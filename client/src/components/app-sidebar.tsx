@@ -103,12 +103,12 @@ export function AppSidebar({ role, isSystemAdmin = false, isPaused = false }: Ap
 
   const intakeNavItems = isPaused ? [] : isClient ? [] : [
     { title: "Secure Intake", url: "/secure-intake", icon: Upload, show: true },
-    { title: "Intake Spaces", url: "/secure-intake/spaces", icon: FileText, show: true },
-    { title: "Upload Requests", url: "/secure-intake/requests", icon: Upload, show: true },
-    { title: "Intake Files", url: "/secure-intake/files", icon: FileText, show: true },
-    { title: "Intake Audit", url: "/secure-intake/audit", icon: Shield, show: isAdminOrOwner },
-    { title: "Intake Policies", url: "/secure-intake/policies", icon: ShieldCheck, show: isAdminOrOwner },
-    { title: "Intake Storage", url: "/secure-intake/storage", icon: Server, show: isAdminOrOwner },
+    { title: "Spaces", url: "/secure-intake/spaces", icon: FileText, show: true },
+    { title: "Requests", url: "/secure-intake/requests", icon: Upload, show: true },
+    { title: "Files", url: "/secure-intake/files", icon: FileText, show: true },
+    { title: "Audit", url: "/secure-intake/audit", icon: Shield, show: isAdminOrOwner },
+    { title: "Policies", url: "/secure-intake/policies", icon: ShieldCheck, show: isAdminOrOwner },
+    { title: "Storage", url: "/secure-intake/storage", icon: Server, show: isAdminOrOwner },
   ].filter((item) => item.show);
 
   const adminNavItems = isPaused

@@ -1,38 +1,62 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Clock, Shield } from "lucide-react";
+import { Breadcrumbs } from "@/components/breadcrumbs";
+import { Clock, Shield, AlertCircle } from "lucide-react";
 
 export default function IntakeAuditPage() {
   const [actionFilter, setActionFilter] = useState("");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
 
-  const { data: events, isLoading } = useQuery<any[]>({
+  const { data: events, isLoading, error } = useQuery<any[]>({
     queryKey: ["/api/secure-intake/audit", { action: actionFilter, dateFrom, dateTo }],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (actionFilter) params.set("action", actionFilter);
       if (dateFrom) params.set("dateFrom", dateFrom);
       if (dateTo) params.set("dateTo", dateTo);
-      const res = await fetch(`/api/secure-intake/audit?${params}`);
+      const res = await fetch(`/api/secure-intake/audit?${params}`, { credentials: "include" });
       if (!res.ok) throw new Error("Failed to load audit events");
       return res.json();
     },
   });
 
-  if (isLoading) return <div className="p-6"><Skeleton className="h-8 w-64 mb-4" /><Skeleton className="h-48" /></div>;
+  if (isLoading) {
+    return (
+      <div className="p-6 space-y-4">
+        <Skeleton className="h-4 w-48" />
+        <Skeleton className="h-8 w-64" />
+        <div className="flex gap-3"><Skeleton className="h-10 w-48" /><Skeleton className="h-10 w-40" /><Skeleton className="h-10 w-40" /></div>
+        <Skeleton className="h-64" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-6 space-y-4">
+        <Breadcrumbs items={[{ label: "Secure Intake", href: "/secure-intake" }, { label: "Audit Log" }]} />
+        <div className="flex flex-col items-center justify-center py-16 text-center">
+          <AlertCircle className="w-10 h-10 text-muted-foreground opacity-40 mb-3" />
+          <p className="text-sm font-medium">Failed to load audit events</p>
+          <p className="text-xs text-muted-foreground mt-1">Please try again later.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 space-y-6">
       <div>
-        <h1 className="text-2xl font-bold" data-testid="text-audit-title">Intake Audit Log</h1>
-        <p className="text-muted-foreground">Immutable record of all secure intake activity</p>
+        <Breadcrumbs items={[{ label: "Secure Intake", href: "/secure-intake" }, { label: "Audit Log" }]} />
+        <h1 className="text-2xl font-bold tracking-tight" data-testid="text-audit-title">Intake Audit Log</h1>
+        <p className="text-sm text-muted-foreground">Immutable record of all secure intake activity</p>
       </div>
 
       <div className="flex gap-3 flex-wrap">
@@ -51,20 +75,20 @@ export default function IntakeAuditPage() {
             <SelectItem value="file.rejected">File Rejected</SelectItem>
             <SelectItem value="file.deleted">File Deleted</SelectItem>
             <SelectItem value="policy.updated">Policy Updated</SelectItem>
+            <SelectItem value="auth.password_failed">Auth Failed</SelectItem>
+            <SelectItem value="auth.password_verified">Auth Verified</SelectItem>
           </SelectContent>
         </Select>
-        <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="w-[160px]" data-testid="input-audit-date-from" />
-        <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="w-[160px]" data-testid="input-audit-date-to" />
+        <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="w-[160px]" placeholder="From" data-testid="input-audit-date-from" />
+        <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="w-[160px]" placeholder="To" data-testid="input-audit-date-to" />
       </div>
 
       {(!events || events.length === 0) ? (
-        <Card>
-          <CardContent className="py-12 text-center">
-            <Shield className="w-12 h-12 mx-auto mb-3 text-muted-foreground" />
-            <h3 className="font-medium mb-1">No audit events</h3>
-            <p className="text-sm text-muted-foreground">Activity will be recorded here automatically</p>
-          </CardContent>
-        </Card>
+        <div className="flex flex-col items-center justify-center py-16 text-center">
+          <Shield className="w-10 h-10 text-muted-foreground opacity-40 mb-3" />
+          <p className="text-sm font-medium">No audit events</p>
+          <p className="text-xs text-muted-foreground mt-1">Activity will be recorded here automatically</p>
+        </div>
       ) : (
         <Card>
           <Table>
