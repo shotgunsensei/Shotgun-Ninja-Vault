@@ -99,12 +99,16 @@ export async function authenticateUser(email: string, password: string): Promise
   const valid = await verifyPassword(password, user.passwordHash);
   if (!valid) {
     const attempts = user.failedLoginAttempts + 1;
-    const updateData: any = { failedLoginAttempts: attempts };
     if (attempts >= MAX_FAILED_ATTEMPTS) {
-      updateData.lockedUntil = new Date(Date.now() + LOCKOUT_DURATION_MS);
-      updateData.failedLoginAttempts = 0;
+      await db.update(users).set({
+        failedLoginAttempts: 0,
+        lockedUntil: new Date(Date.now() + LOCKOUT_DURATION_MS),
+      }).where(eq(users.id, user.id));
+    } else {
+      await db.update(users).set({
+        failedLoginAttempts: attempts,
+      }).where(eq(users.id, user.id));
     }
-    await db.update(users).set(updateData).where(eq(users.id, user.id));
     throw new Error("Invalid email or password");
   }
 

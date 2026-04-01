@@ -1,6 +1,6 @@
 import type { Express } from "express";
 import { type Server } from "http";
-import { setupSession, registerAuthRoutes } from "./auth";
+import { setupSession, registerAuthRoutes, hydrateUser } from "./auth";
 import { registerCoreRoutes } from "./modules/core/routes";
 import { registerEvidenceRoutes } from "./modules/evidence/routes";
 import { registerLicenseRoutes } from "./modules/license/routes";
@@ -152,6 +152,7 @@ export async function registerRoutes(
     startWebhookWorker();
 
     setupSession(app);
+    app.use(hydrateUser);
     registerAuthRoutes(app);
     registerReviewerRoutes(app);
     registerAccountRoutes(app);
