@@ -22,9 +22,10 @@ export async function verifyPassword(password: string, hash: string): Promise<bo
 export function generateTOTPSecret(email: string): { secret: string; otpauthUrl: string } {
   const secret = otpGenerateSecret();
   const otpauthUrl = generateURI({
-    type: "totp",
-    label: `Tech Deck:${email}`,
-    params: { secret, issuer: "Tech Deck" },
+    strategy: "totp",
+    label: email,
+    secret,
+    issuer: "Tech Deck",
   });
   return { secret, otpauthUrl };
 }

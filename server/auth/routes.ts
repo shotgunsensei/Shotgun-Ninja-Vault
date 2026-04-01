@@ -121,7 +121,7 @@ export function registerAuthRoutes(app: Express): void {
     }
   });
 
-  app.post("/api/auth/mfa/validate", csrfProtection, async (req: Request, res: Response) => {
+  app.post("/api/auth/mfa/validate", authLimiter, csrfProtection, async (req: Request, res: Response) => {
     try {
       const userId = req.session?.userId;
       if (!userId || !req.session?.mfaPending) {
