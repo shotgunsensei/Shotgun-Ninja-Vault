@@ -90,6 +90,21 @@ import {
   type InsertKbArticle,
   type RecurringTicketTemplate,
   type InsertRecurringTicketTemplate,
+  intakeSpaces,
+  uploadRequests,
+  intakeFiles,
+  intakeAuditEvents,
+  intakePolicies,
+  type IntakeSpace,
+  type InsertIntakeSpace,
+  type UploadRequest,
+  type InsertUploadRequest,
+  type IntakeFile,
+  type InsertIntakeFile,
+  type IntakeAuditEvent,
+  type InsertIntakeAuditEvent,
+  type IntakePolicy,
+  type InsertIntakePolicy,
 } from "@shared/schema";
 import { users } from "@shared/models/auth";
 import { db } from "./db";
@@ -345,6 +360,46 @@ export interface IStorage {
   updateRecurringTemplate(tenantId: string, id: string, data: Partial<Omit<RecurringTicketTemplate, "id" | "tenantId" | "createdAt">>): Promise<RecurringTicketTemplate | undefined>;
   deleteRecurringTemplate(tenantId: string, id: string): Promise<void>;
   getDueRecurringTemplates(): Promise<RecurringTicketTemplate[]>;
+
+  createIntakeSpace(data: InsertIntakeSpace): Promise<IntakeSpace>;
+  getIntakeSpacesByTenant(tenantId: string): Promise<IntakeSpace[]>;
+  getIntakeSpaceById(tenantId: string, id: string): Promise<IntakeSpace | undefined>;
+  getIntakeSpaceBySlug(tenantId: string, slug: string): Promise<IntakeSpace | undefined>;
+  updateIntakeSpace(tenantId: string, id: string, data: Partial<Omit<IntakeSpace, "id" | "tenantId" | "createdAt">>): Promise<IntakeSpace | undefined>;
+  deleteIntakeSpace(tenantId: string, id: string): Promise<void>;
+  getIntakeSpaceCount(tenantId: string): Promise<number>;
+
+  createUploadRequest(data: InsertUploadRequest): Promise<UploadRequest>;
+  getUploadRequestsByTenant(tenantId: string, filters?: { spaceId?: string; status?: string }): Promise<UploadRequest[]>;
+  getUploadRequestById(tenantId: string, id: string): Promise<UploadRequest | undefined>;
+  getUploadRequestByToken(token: string): Promise<(UploadRequest & { tenantSlug: string; spaceName: string }) | undefined>;
+  updateUploadRequest(tenantId: string, id: string, data: Partial<Omit<UploadRequest, "id" | "tenantId" | "createdAt">>): Promise<UploadRequest | undefined>;
+  revokeUploadRequest(tenantId: string, id: string): Promise<void>;
+  incrementUploadRequestCount(id: string, fileSize: number): Promise<void>;
+  getActiveUploadRequestCount(tenantId: string): Promise<number>;
+
+  createIntakeFile(data: InsertIntakeFile): Promise<IntakeFile>;
+  getIntakeFilesByTenant(tenantId: string, filters?: { spaceId?: string; status?: string; uploadRequestId?: string; query?: string }): Promise<IntakeFile[]>;
+  getIntakeFileById(tenantId: string, id: string): Promise<IntakeFile | undefined>;
+  updateIntakeFile(tenantId: string, id: string, data: Partial<Omit<IntakeFile, "id" | "tenantId" | "createdAt">>): Promise<IntakeFile | undefined>;
+  deleteIntakeFile(tenantId: string, id: string): Promise<void>;
+  getIntakeStorageUsed(tenantId: string): Promise<number>;
+
+  createIntakeAuditEvent(data: InsertIntakeAuditEvent): Promise<IntakeAuditEvent>;
+  getIntakeAuditEvents(tenantId: string, filters?: { action?: string; objectType?: string; dateFrom?: string; dateTo?: string }): Promise<IntakeAuditEvent[]>;
+
+  getIntakePolicy(tenantId: string): Promise<IntakePolicy | undefined>;
+  upsertIntakePolicy(tenantId: string, data: Partial<Omit<IntakePolicy, "id" | "tenantId" | "createdAt">>): Promise<IntakePolicy>;
+
+  getIntakeDashboardStats(tenantId: string): Promise<{
+    totalFiles: number;
+    totalSpaces: number;
+    activeRequests: number;
+    expiredRequests: number;
+    storageUsedBytes: number;
+    recentFiles: IntakeFile[];
+    recentAudit: IntakeAuditEvent[];
+  }>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -2272,6 +2327,204 @@ export class DatabaseStorage implements IStorage {
           lte(recurringTicketTemplates.nextRunAt, new Date())
         )
       );
+  }
+
+  async createIntakeSpace(data: InsertIntakeSpace): Promise<IntakeSpace> {
+    const [space] = await db.insert(intakeSpaces).values(data).returning();
+    return space;
+  }
+
+  async getIntakeSpacesByTenant(tenantId: string): Promise<IntakeSpace[]> {
+    return db.select().from(intakeSpaces).where(eq(intakeSpaces.tenantId, tenantId)).orderBy(asc(intakeSpaces.name));
+  }
+
+  async getIntakeSpaceById(tenantId: string, id: string): Promise<IntakeSpace | undefined> {
+    const [space] = await db.select().from(intakeSpaces).where(and(eq(intakeSpaces.tenantId, tenantId), eq(intakeSpaces.id, id)));
+    return space;
+  }
+
+  async getIntakeSpaceBySlug(tenantId: string, slug: string): Promise<IntakeSpace | undefined> {
+    const [space] = await db.select().from(intakeSpaces).where(and(eq(intakeSpaces.tenantId, tenantId), eq(intakeSpaces.slug, slug)));
+    return space;
+  }
+
+  async updateIntakeSpace(tenantId: string, id: string, data: Partial<Omit<IntakeSpace, "id" | "tenantId" | "createdAt">>): Promise<IntakeSpace | undefined> {
+    const [updated] = await db.update(intakeSpaces).set({ ...data, updatedAt: new Date() }).where(and(eq(intakeSpaces.tenantId, tenantId), eq(intakeSpaces.id, id))).returning();
+    return updated;
+  }
+
+  async deleteIntakeSpace(tenantId: string, id: string): Promise<void> {
+    await db.delete(intakeSpaces).where(and(eq(intakeSpaces.tenantId, tenantId), eq(intakeSpaces.id, id)));
+  }
+
+  async getIntakeSpaceCount(tenantId: string): Promise<number> {
+    const [result] = await db.select({ count: sql<number>`count(*)::int` }).from(intakeSpaces).where(eq(intakeSpaces.tenantId, tenantId));
+    return result?.count || 0;
+  }
+
+  async createUploadRequest(data: InsertUploadRequest): Promise<UploadRequest> {
+    const [req] = await db.insert(uploadRequests).values(data).returning();
+    return req;
+  }
+
+  async getUploadRequestsByTenant(tenantId: string, filters?: { spaceId?: string; status?: string }): Promise<UploadRequest[]> {
+    const conditions = [eq(uploadRequests.tenantId, tenantId)];
+    if (filters?.spaceId) conditions.push(eq(uploadRequests.spaceId, filters.spaceId));
+    if (filters?.status) conditions.push(eq(uploadRequests.status, filters.status as any));
+    return db.select().from(uploadRequests).where(and(...conditions)).orderBy(desc(uploadRequests.createdAt));
+  }
+
+  async getUploadRequestById(tenantId: string, id: string): Promise<UploadRequest | undefined> {
+    const [req] = await db.select().from(uploadRequests).where(and(eq(uploadRequests.tenantId, tenantId), eq(uploadRequests.id, id)));
+    return req;
+  }
+
+  async getUploadRequestByToken(token: string): Promise<(UploadRequest & { tenantSlug: string; spaceName: string }) | undefined> {
+    const [result] = await db
+      .select({
+        id: uploadRequests.id,
+        tenantId: uploadRequests.tenantId,
+        spaceId: uploadRequests.spaceId,
+        title: uploadRequests.title,
+        uploaderName: uploadRequests.uploaderName,
+        uploaderEmail: uploadRequests.uploaderEmail,
+        instructions: uploadRequests.instructions,
+        token: uploadRequests.token,
+        status: uploadRequests.status,
+        maxUploads: uploadRequests.maxUploads,
+        maxTotalSizeMb: uploadRequests.maxTotalSizeMb,
+        allowedFileTypes: uploadRequests.allowedFileTypes,
+        oneTimeUse: uploadRequests.oneTimeUse,
+        requiresPassword: uploadRequests.requiresPassword,
+        passwordHash: uploadRequests.passwordHash,
+        expiresAt: uploadRequests.expiresAt,
+        completedAt: uploadRequests.completedAt,
+        revokedAt: uploadRequests.revokedAt,
+        createdById: uploadRequests.createdById,
+        uploadCount: uploadRequests.uploadCount,
+        totalUploadedBytes: uploadRequests.totalUploadedBytes,
+        createdAt: uploadRequests.createdAt,
+        updatedAt: uploadRequests.updatedAt,
+        tenantSlug: tenants.slug,
+        spaceName: intakeSpaces.name,
+      })
+      .from(uploadRequests)
+      .innerJoin(tenants, eq(uploadRequests.tenantId, tenants.id))
+      .innerJoin(intakeSpaces, eq(uploadRequests.spaceId, intakeSpaces.id))
+      .where(eq(uploadRequests.token, token));
+    return result as any;
+  }
+
+  async updateUploadRequest(tenantId: string, id: string, data: Partial<Omit<UploadRequest, "id" | "tenantId" | "createdAt">>): Promise<UploadRequest | undefined> {
+    const [updated] = await db.update(uploadRequests).set({ ...data, updatedAt: new Date() }).where(and(eq(uploadRequests.tenantId, tenantId), eq(uploadRequests.id, id))).returning();
+    return updated;
+  }
+
+  async revokeUploadRequest(tenantId: string, id: string): Promise<void> {
+    await db.update(uploadRequests).set({ status: "revoked", revokedAt: new Date(), updatedAt: new Date() }).where(and(eq(uploadRequests.tenantId, tenantId), eq(uploadRequests.id, id)));
+  }
+
+  async incrementUploadRequestCount(id: string, fileSize: number): Promise<void> {
+    await db.update(uploadRequests).set({
+      uploadCount: sql`${uploadRequests.uploadCount} + 1`,
+      totalUploadedBytes: sql`${uploadRequests.totalUploadedBytes} + ${fileSize}`,
+      updatedAt: new Date(),
+    }).where(eq(uploadRequests.id, id));
+  }
+
+  async getActiveUploadRequestCount(tenantId: string): Promise<number> {
+    const [result] = await db.select({ count: sql<number>`count(*)::int` }).from(uploadRequests).where(and(eq(uploadRequests.tenantId, tenantId), eq(uploadRequests.status, "active")));
+    return result?.count || 0;
+  }
+
+  async createIntakeFile(data: InsertIntakeFile): Promise<IntakeFile> {
+    const [file] = await db.insert(intakeFiles).values(data).returning();
+    return file;
+  }
+
+  async getIntakeFilesByTenant(tenantId: string, filters?: { spaceId?: string; status?: string; uploadRequestId?: string; query?: string }): Promise<IntakeFile[]> {
+    const conditions = [eq(intakeFiles.tenantId, tenantId)];
+    if (filters?.spaceId) conditions.push(eq(intakeFiles.spaceId, filters.spaceId));
+    if (filters?.status) conditions.push(eq(intakeFiles.status, filters.status as any));
+    if (filters?.uploadRequestId) conditions.push(eq(intakeFiles.uploadRequestId, filters.uploadRequestId));
+    if (filters?.query) conditions.push(ilike(intakeFiles.originalName, `%${filters.query}%`));
+    return db.select().from(intakeFiles).where(and(...conditions)).orderBy(desc(intakeFiles.createdAt));
+  }
+
+  async getIntakeFileById(tenantId: string, id: string): Promise<IntakeFile | undefined> {
+    const [file] = await db.select().from(intakeFiles).where(and(eq(intakeFiles.tenantId, tenantId), eq(intakeFiles.id, id)));
+    return file;
+  }
+
+  async updateIntakeFile(tenantId: string, id: string, data: Partial<Omit<IntakeFile, "id" | "tenantId" | "createdAt">>): Promise<IntakeFile | undefined> {
+    const [updated] = await db.update(intakeFiles).set(data).where(and(eq(intakeFiles.tenantId, tenantId), eq(intakeFiles.id, id))).returning();
+    return updated;
+  }
+
+  async deleteIntakeFile(tenantId: string, id: string): Promise<void> {
+    await db.delete(intakeFiles).where(and(eq(intakeFiles.tenantId, tenantId), eq(intakeFiles.id, id)));
+  }
+
+  async getIntakeStorageUsed(tenantId: string): Promise<number> {
+    const [result] = await db.select({ total: sql<number>`coalesce(sum(${intakeFiles.sizeBytes}), 0)::bigint` }).from(intakeFiles).where(eq(intakeFiles.tenantId, tenantId));
+    return Number(result?.total) || 0;
+  }
+
+  async createIntakeAuditEvent(data: InsertIntakeAuditEvent): Promise<IntakeAuditEvent> {
+    const [event] = await db.insert(intakeAuditEvents).values(data).returning();
+    return event;
+  }
+
+  async getIntakeAuditEvents(tenantId: string, filters?: { action?: string; objectType?: string; dateFrom?: string; dateTo?: string }): Promise<IntakeAuditEvent[]> {
+    const conditions = [eq(intakeAuditEvents.tenantId, tenantId)];
+    if (filters?.action) conditions.push(eq(intakeAuditEvents.action, filters.action));
+    if (filters?.objectType) conditions.push(eq(intakeAuditEvents.objectType, filters.objectType));
+    if (filters?.dateFrom) conditions.push(gte(intakeAuditEvents.createdAt, new Date(filters.dateFrom)));
+    if (filters?.dateTo) conditions.push(lte(intakeAuditEvents.createdAt, new Date(filters.dateTo)));
+    return db.select().from(intakeAuditEvents).where(and(...conditions)).orderBy(desc(intakeAuditEvents.createdAt)).limit(200);
+  }
+
+  async getIntakePolicy(tenantId: string): Promise<IntakePolicy | undefined> {
+    const [policy] = await db.select().from(intakePolicies).where(eq(intakePolicies.tenantId, tenantId));
+    return policy;
+  }
+
+  async upsertIntakePolicy(tenantId: string, data: Partial<Omit<IntakePolicy, "id" | "tenantId" | "createdAt">>): Promise<IntakePolicy> {
+    const existing = await this.getIntakePolicy(tenantId);
+    if (existing) {
+      const [updated] = await db.update(intakePolicies).set({ ...data, updatedAt: new Date() }).where(eq(intakePolicies.tenantId, tenantId)).returning();
+      return updated;
+    }
+    const [created] = await db.insert(intakePolicies).values({ tenantId, ...data } as any).returning();
+    return created;
+  }
+
+  async getIntakeDashboardStats(tenantId: string): Promise<{
+    totalFiles: number;
+    totalSpaces: number;
+    activeRequests: number;
+    expiredRequests: number;
+    storageUsedBytes: number;
+    recentFiles: IntakeFile[];
+    recentAudit: IntakeAuditEvent[];
+  }> {
+    const [fileCount] = await db.select({ count: sql<number>`count(*)::int` }).from(intakeFiles).where(eq(intakeFiles.tenantId, tenantId));
+    const [spaceCount] = await db.select({ count: sql<number>`count(*)::int` }).from(intakeSpaces).where(eq(intakeSpaces.tenantId, tenantId));
+    const [activeCount] = await db.select({ count: sql<number>`count(*)::int` }).from(uploadRequests).where(and(eq(uploadRequests.tenantId, tenantId), eq(uploadRequests.status, "active")));
+    const [expiredCount] = await db.select({ count: sql<number>`count(*)::int` }).from(uploadRequests).where(and(eq(uploadRequests.tenantId, tenantId), eq(uploadRequests.status, "expired")));
+    const storageUsed = await this.getIntakeStorageUsed(tenantId);
+    const recentFiles = await db.select().from(intakeFiles).where(eq(intakeFiles.tenantId, tenantId)).orderBy(desc(intakeFiles.createdAt)).limit(10);
+    const recentAudit = await db.select().from(intakeAuditEvents).where(eq(intakeAuditEvents.tenantId, tenantId)).orderBy(desc(intakeAuditEvents.createdAt)).limit(10);
+
+    return {
+      totalFiles: fileCount?.count || 0,
+      totalSpaces: spaceCount?.count || 0,
+      activeRequests: activeCount?.count || 0,
+      expiredRequests: expiredCount?.count || 0,
+      storageUsedBytes: storageUsed,
+      recentFiles,
+      recentAudit,
+    };
   }
 }
 

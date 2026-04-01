@@ -1,0 +1,488 @@
+Integrate a new multi-tenant secure file intake module directly into TechDeck as a first-class feature, not a separate application.
+
+This module should feel like a natural extension of TechDeck’s existing MSP / IT operations platform and should be designed for MSPs and regulated clients who need a secure way to receive files from outside users.
+
+Module Name
+
+Use one of these labels consistently across the UI:
+
+Secure Upload Portal
+Secure Intake
+Client File Intake
+
+Preferred internal name: secure-intake
+
+This must live inside TechDeck’s architecture, navigation, auth model, styling system, and tenant/account system.
+
+Product Intent
+
+TechDeck should gain a new module that allows each TechDeck tenant to:
+
+provision secure upload spaces for their own organization
+segregate file intake by tenant and optionally by client/customer/workspace
+issue temporary upload access to outside users
+receive files securely from people outside their organization
+track audit logs for every invite, upload, download, and permission event
+enforce storage and plan limits by subscription tier
+support compliance-oriented workflows for healthcare, legal, finance, and MSP use cases
+
+This is not a separate product, separate login domain, or separate deployment.
+It is a module within TechDeck with shared platform identity and shared admin control, while preserving strict tenant separation.
+
+Core Architectural Requirement
+
+Do not build a new standalone app shell.
+
+Instead:
+
+add this as a new TechDeck feature area
+hook it into TechDeck’s existing:
+authentication
+user management
+tenant/account model
+permissions system
+billing/subscription framework
+UI layout
+navigation/sidebar
+settings
+admin architecture
+
+If TechDeck is missing any of those foundations, extend them properly and cleanly.
+
+Placement Inside TechDeck
+
+Add a new primary navigation item in TechDeck called:
+
+Secure Intake
+
+Under it, create these sub-pages:
+
+Dashboard
+Upload Requests / Invites
+Files
+Storage
+Audit Log
+Policies
+Settings
+
+If TechDeck has role-based menus already, only show this section to authorized users.
+
+Multi-Tenant Requirements
+
+TechDeck already operates in a tenant-aware business context, so this module must inherit and enforce that model.
+
+Each TechDeck tenant must have:
+
+isolated upload records
+isolated file metadata
+isolated storage namespace
+isolated invites
+isolated audit events
+isolated policies
+isolated storage limits
+isolated external uploader sessions
+
+No tenant should ever be able to access or enumerate another tenant’s intake data.
+
+All backend queries must be tenant-scoped.
+
+Addressing Semantics
+
+This module must support tenant-aware addressing for external upload access without becoming a separate product.
+
+Support these patterns:
+
+path-based tenant routing within TechDeck
+example: /t/acme/secure-intake/upload/<token>
+workspace/client-based routing inside tenant context
+example: /app/secure-intake/spaces/hr-onboarding
+example: /app/secure-intake/spaces/medical-records
+internal storage namespacing
+example: tenant/acme/space/medical-records/uploads/...
+
+Architect it so that TechDeck can later support subdomains if desired, but default to path-based routing for now.
+
+Main Use Cases
+1. Tenant staff generating upload access
+
+A TechDeck tenant admin or authorized staff member can:
+
+create an upload request
+assign it to a client, patient, vendor, applicant, or external party
+set expiration
+set max upload count
+set max total size
+set per-file size limits
+require metadata fields
+restrict file types
+choose one-time or reusable upload access
+revoke the request at any time
+2. External person uploading files
+
+An outside user receives:
+
+temporary credentials
+or a secure expiring link
+or both
+
+They can then:
+
+authenticate into only the specific upload area
+provide required metadata
+upload one or more files
+receive a confirmation / receipt
+not see anything beyond their authorized upload target
+3. Tenant reviewing submissions
+
+Internal TechDeck users can:
+
+review uploaded files
+filter and search by uploader/date/request/client
+review metadata
+view audit trails
+download files if permitted
+move files through workflow states
+archive or soft-delete according to policy
+Module Features
+Secure Upload Requests / Invites
+
+Build a request/invite system where tenant users can generate:
+
+secure upload link
+temporary username/password
+one-time passcode flow placeholder
+upload access with expiration
+upload access with scope limitation
+
+Each invite/request should support:
+
+request title
+destination intake space
+uploader email/name
+expiration datetime
+max uploads
+max total size
+allowed file types
+note/instructions
+one-time use vs reusable
+revoked status
+upload completion status
+Intake Spaces
+
+Within each tenant, allow admins to create logical upload destinations such as:
+
+Medical Records
+HR Documents
+Legal Intake
+Vendor Submissions
+Client Deliverables
+Imaging Uploads
+
+Each intake space should have:
+
+name
+slug
+description
+allowed roles
+metadata requirements
+retention rule
+allowed file types
+whether external uploads are enabled
+whether internal downloads are restricted
+
+This gives TechDeck a structured, enterprise-like intake model instead of dumping everything into one file bucket.
+
+File Handling
+
+Add secure file intake capabilities with:
+
+drag-and-drop upload
+upload progress
+client-side validation
+server-side validation
+MIME/type checks
+size enforcement
+file metadata capture
+upload receipt ID
+malware scanning integration placeholder
+private file access rules
+file access logging
+
+Build storage through an abstraction layer so local dev storage can later be swapped to S3-compatible object storage.
+
+Dashboard
+
+Add a Secure Intake dashboard inside TechDeck showing:
+
+recent uploads
+pending / active invites
+expired invites
+storage used vs plan quota
+upload activity graph placeholder
+policy violations or blocked uploads
+recent audit activity
+
+This should feel like a serious operational console, not a toy widget.
+
+Audit Trail
+
+Track and expose immutable audit events for:
+
+invite created
+invite edited
+invite revoked
+invite redeemed
+external login
+upload started
+upload completed
+file viewed
+file downloaded
+file deleted
+policy changed
+retention changed
+user permission changed
+
+Each event should include:
+
+tenant ID
+actor type
+actor ID
+action
+object type
+object ID
+IP address
+user agent
+timestamp
+metadata payload
+
+Add a searchable audit log UI inside TechDeck.
+
+HIPAA-Oriented Security Positioning
+
+This module must use compliance-oriented language, not false certification claims.
+
+Do not say:
+
+HIPAA certified
+fully HIPAA compliant by default
+guaranteed HIPAA compliance
+
+Do say:
+
+designed to support regulated workflows
+security-oriented architecture
+compliance-ready patterns
+HIPAA-oriented controls
+actual compliance depends on deployment, policies, encryption, vendor agreements, and operational controls
+
+Add this disclaimer in admin-facing security/compliance copy:
+
+This module includes security-focused features intended to support regulated document intake workflows. Actual HIPAA compliance depends on infrastructure configuration, encryption, access controls, vendor agreements, retention policy, auditing, and organizational process.
+
+Security Requirements
+
+Implement these controls within TechDeck conventions:
+
+server-side authorization on every route
+strict tenant scoping
+UUIDs for external-facing resources
+signed expiring invite tokens
+secure password hashing
+session expiration for temporary access
+inactivity timeout
+rate limiting on auth and upload endpoints
+file type validation
+size validation
+backend MIME inspection
+structured audit logging
+secrets only via environment variables
+no hardcoded secrets
+private object access model
+download access logging
+policy enforcement on backend, not only UI
+
+If TechDeck already has middleware for auth/tenant resolution/permissions, reuse and extend it.
+
+Roles and Permissions
+
+Integrate with TechDeck’s RBAC model. If RBAC is incomplete, extend it.
+
+At minimum include permissions for:
+
+platform admin
+tenant admin
+secure intake manager
+secure intake reviewer
+tenant staff
+external uploader
+
+Permission examples:
+
+create upload requests
+revoke upload requests
+manage intake spaces
+view uploads
+download uploads
+delete uploads
+view audit logs
+manage policies
+view storage usage
+
+Do not rely on frontend-only hiding. Enforce in backend.
+
+Pricing / Subscription Integration
+
+This is a TechDeck module, so its limits must be governed by TechDeck subscription tiers rather than separate plans.
+
+Integrate secure intake into TechDeck’s existing pricing framework.
+
+For example:
+
+Solo
+limited storage
+limited upload requests per month
+limited intake spaces
+Pro
+more storage
+more monthly invites
+audit log access
+custom metadata fields
+MSP
+significantly higher storage
+multiple intake spaces
+tenant branding options
+advanced policies
+delegated staff access
+Unlimited Enterprise
+highest storage
+advanced retention options
+SSO/API hooks placeholder
+custom policies
+enterprise-ready admin controls
+
+Enforce:
+
+storage quota
+upload volume
+max active invites
+max intake spaces
+branding/customization access
+
+All enforcement must happen in backend logic.
+
+Database / Schema Additions
+
+Extend TechDeck’s database with module-specific entities such as:
+
+intake_spaces
+upload_requests
+temporary_upload_credentials
+uploaded_files
+uploaded_file_metadata
+file_access_events
+intake_policies
+intake_audit_events
+tenant_storage_quotas
+
+If TechDeck already has generic audit/event/user/subscription tables, reuse them where appropriate.
+
+All new entities must link properly into existing TechDeck tenant/account structures.
+
+UI / UX Requirements
+
+The module UI must match TechDeck’s visual system and not feel bolted on.
+
+Requirements:
+
+same design language as TechDeck
+dashboard cards
+status badges
+searchable tables
+invite creation modal
+file detail panel
+storage progress bars
+policy settings forms
+responsive layout
+accessible labels and states
+polished empty states
+
+For upload recipients outside the organization, create a simplified external-facing intake screen that still clearly belongs to TechDeck but is branded for the tenant when possible.
+
+Required Pages / Views Inside TechDeck
+Internal Module Pages
+/app/secure-intake
+/app/secure-intake/dashboard
+/app/secure-intake/requests
+/app/secure-intake/files
+/app/secure-intake/storage
+/app/secure-intake/audit
+/app/secure-intake/policies
+/app/secure-intake/settings
+External Access Pages
+/t/:tenantSlug/secure-intake/upload/:token
+/t/:tenantSlug/secure-intake/access-expired
+/t/:tenantSlug/secure-intake/upload-success
+
+Use TechDeck’s routing patterns if they differ, but keep the structure consistent and clean.
+
+Notifications
+
+Add hooks for:
+
+notify internal TechDeck users when upload completes
+notify uploader on successful submission
+notify admin when invite is near expiration
+notify tenant when storage quota is near limit
+
+Stub provider integrations cleanly if TechDeck already has notifications infrastructure.
+
+Documentation Requirements
+
+Update TechDeck documentation to include this module.
+
+Generate or update:
+
+README sections for Secure Intake
+ARCHITECTURE.md
+SECURITY.md
+module-specific configuration docs
+environment variable examples for storage, invite signing, quotas, and security controls
+
+Document:
+
+tenant isolation model
+storage namespace model
+invite security model
+compliance-oriented disclaimer
+future path to S3 / object storage
+production hardening gaps
+Important Build Rules
+This must be a module inside TechDeck, not a separate standalone app.
+Reuse TechDeck’s shared auth, shared layout, shared tenant logic, and shared subscription model.
+Keep strict tenant isolation.
+External users must only access the precise upload scope granted to them.
+Do not use false compliance language.
+Build it modularly so future enterprise controls can be added cleanly.
+Match TechDeck’s quality bar and styling.
+Deliverables
+
+After implementing, provide:
+
+integrated module code
+updated routes/navigation
+database schema/migrations
+seed data
+updated RBAC permissions
+working upload request flow
+external upload flow
+dashboard views
+audit logging
+storage quota enforcement
+updated docs
+
+Also provide:
+
+a short integration summary
+a feature checklist
+a known gaps before production regulated deployment list
+a recommended phase 2 enhancement list

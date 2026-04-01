@@ -63,6 +63,10 @@ export const DEFAULT_PLANS: Array<{
       apiEnabled: false,
       portalEnabled: false,
       statusEnabled: false,
+      intakeEnabled: true,
+      intakeSpacesMax: 1,
+      intakeRequestsPerMonth: 5,
+      intakeStorageGb: 1,
     },
   },
   {
@@ -77,6 +81,10 @@ export const DEFAULT_PLANS: Array<{
       apiEnabled: true,
       portalEnabled: true,
       statusEnabled: true,
+      intakeEnabled: true,
+      intakeSpacesMax: 5,
+      intakeRequestsPerMonth: 50,
+      intakeStorageGb: 10,
     },
   },
   {
@@ -91,6 +99,10 @@ export const DEFAULT_PLANS: Array<{
       apiEnabled: true,
       portalEnabled: true,
       statusEnabled: true,
+      intakeEnabled: true,
+      intakeSpacesMax: 25,
+      intakeRequestsPerMonth: 500,
+      intakeStorageGb: 50,
     },
   },
   {
@@ -105,6 +117,10 @@ export const DEFAULT_PLANS: Array<{
       apiEnabled: true,
       portalEnabled: true,
       statusEnabled: true,
+      intakeEnabled: true,
+      intakeSpacesMax: 999,
+      intakeRequestsPerMonth: 9999,
+      intakeStorageGb: 500,
     },
   },
 ];

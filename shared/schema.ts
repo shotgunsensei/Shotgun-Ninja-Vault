@@ -862,6 +862,10 @@ export interface PlanLimits {
   apiEnabled: boolean;
   portalEnabled: boolean;
   statusEnabled: boolean;
+  intakeEnabled?: boolean;
+  intakeSpacesMax?: number;
+  intakeRequestsPerMonth?: number;
+  intakeStorageGb?: number;
 }
 
 export type Tenant = typeof tenants.$inferSelect;
@@ -1344,3 +1348,225 @@ export const insertRecurringTicketTemplateSchema = createInsertSchema(recurringT
 
 export type RecurringTicketTemplate = typeof recurringTicketTemplates.$inferSelect;
 export type InsertRecurringTicketTemplate = z.infer<typeof insertRecurringTicketTemplateSchema>;
+
+export const intakeSpaceStatusEnum = pgEnum("intake_space_status", ["active", "archived"]);
+
+export const intakeSpaces = pgTable(
+  "intake_spaces",
+  {
+    id: varchar("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    tenantId: varchar("tenant_id")
+      .notNull()
+      .references(() => tenants.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    slug: text("slug").notNull(),
+    description: text("description"),
+    status: intakeSpaceStatusEnum("status").notNull().default("active"),
+    allowedFileTypes: text("allowed_file_types").array(),
+    maxFileSizeMb: integer("max_file_size_mb").notNull().default(25),
+    requireMetadata: boolean("require_metadata").notNull().default(false),
+    metadataFields: jsonb("metadata_fields"),
+    retentionDays: integer("retention_days"),
+    externalUploadsEnabled: boolean("external_uploads_enabled").notNull().default(true),
+    createdAt: timestamp("created_at").defaultNow(),
+    updatedAt: timestamp("updated_at").defaultNow(),
+  },
+  (table) => [
+    index("idx_intake_spaces_tenant").on(table.tenantId),
+    uniqueIndex("idx_intake_spaces_tenant_slug").on(table.tenantId, table.slug),
+  ]
+);
+
+export const insertIntakeSpaceSchema = createInsertSchema(intakeSpaces).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type IntakeSpace = typeof intakeSpaces.$inferSelect;
+export type InsertIntakeSpace = z.infer<typeof insertIntakeSpaceSchema>;
+
+export const uploadRequestStatusEnum = pgEnum("upload_request_status", [
+  "active",
+  "completed",
+  "expired",
+  "revoked",
+]);
+
+export const uploadRequests = pgTable(
+  "upload_requests",
+  {
+    id: varchar("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    tenantId: varchar("tenant_id")
+      .notNull()
+      .references(() => tenants.id, { onDelete: "cascade" }),
+    spaceId: varchar("space_id")
+      .notNull()
+      .references(() => intakeSpaces.id, { onDelete: "cascade" }),
+    title: text("title").notNull(),
+    uploaderName: text("uploader_name"),
+    uploaderEmail: text("uploader_email"),
+    instructions: text("instructions"),
+    token: text("token").notNull().unique(),
+    status: uploadRequestStatusEnum("status").notNull().default("active"),
+    maxUploads: integer("max_uploads"),
+    maxTotalSizeMb: integer("max_total_size_mb"),
+    allowedFileTypes: text("allowed_file_types").array(),
+    oneTimeUse: boolean("one_time_use").notNull().default(false),
+    requiresPassword: boolean("requires_password").notNull().default(false),
+    passwordHash: text("password_hash"),
+    expiresAt: timestamp("expires_at"),
+    completedAt: timestamp("completed_at"),
+    revokedAt: timestamp("revoked_at"),
+    createdById: varchar("created_by_id").references(() => usersTable.id, { onDelete: "set null" }),
+    uploadCount: integer("upload_count").notNull().default(0),
+    totalUploadedBytes: bigint("total_uploaded_bytes", { mode: "number" }).notNull().default(0),
+    createdAt: timestamp("created_at").defaultNow(),
+    updatedAt: timestamp("updated_at").defaultNow(),
+  },
+  (table) => [
+    index("idx_upload_requests_tenant").on(table.tenantId),
+    index("idx_upload_requests_space").on(table.spaceId),
+    index("idx_upload_requests_token").on(table.token),
+    index("idx_upload_requests_status").on(table.tenantId, table.status),
+  ]
+);
+
+export const insertUploadRequestSchema = createInsertSchema(uploadRequests).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  uploadCount: true,
+  totalUploadedBytes: true,
+  completedAt: true,
+  revokedAt: true,
+});
+
+export type UploadRequest = typeof uploadRequests.$inferSelect;
+export type InsertUploadRequest = z.infer<typeof insertUploadRequestSchema>;
+
+export const intakeFileStatusEnum = pgEnum("intake_file_status", [
+  "uploaded",
+  "reviewed",
+  "approved",
+  "rejected",
+  "archived",
+]);
+
+export const intakeFiles = pgTable(
+  "intake_files",
+  {
+    id: varchar("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    tenantId: varchar("tenant_id")
+      .notNull()
+      .references(() => tenants.id, { onDelete: "cascade" }),
+    spaceId: varchar("space_id")
+      .notNull()
+      .references(() => intakeSpaces.id, { onDelete: "cascade" }),
+    uploadRequestId: varchar("upload_request_id")
+      .references(() => uploadRequests.id, { onDelete: "set null" }),
+    originalName: text("original_name").notNull(),
+    storagePath: text("storage_path").notNull(),
+    mimeType: text("mime_type"),
+    sizeBytes: bigint("size_bytes", { mode: "number" }).notNull(),
+    sha256: text("sha256"),
+    status: intakeFileStatusEnum("status").notNull().default("uploaded"),
+    uploaderName: text("uploader_name"),
+    uploaderEmail: text("uploader_email"),
+    uploaderIp: text("uploader_ip"),
+    metadata: jsonb("metadata"),
+    reviewedById: varchar("reviewed_by_id").references(() => usersTable.id, { onDelete: "set null" }),
+    reviewedAt: timestamp("reviewed_at"),
+    reviewNotes: text("review_notes"),
+    createdAt: timestamp("created_at").defaultNow(),
+  },
+  (table) => [
+    index("idx_intake_files_tenant").on(table.tenantId),
+    index("idx_intake_files_space").on(table.spaceId),
+    index("idx_intake_files_request").on(table.uploadRequestId),
+    index("idx_intake_files_status").on(table.tenantId, table.status),
+  ]
+);
+
+export const insertIntakeFileSchema = createInsertSchema(intakeFiles).omit({
+  id: true,
+  createdAt: true,
+  reviewedAt: true,
+});
+
+export type IntakeFile = typeof intakeFiles.$inferSelect;
+export type InsertIntakeFile = z.infer<typeof insertIntakeFileSchema>;
+
+export const intakeAuditEvents = pgTable(
+  "intake_audit_events",
+  {
+    id: varchar("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    tenantId: varchar("tenant_id")
+      .notNull()
+      .references(() => tenants.id, { onDelete: "cascade" }),
+    actorType: text("actor_type").notNull(),
+    actorId: text("actor_id"),
+    action: text("action").notNull(),
+    objectType: text("object_type"),
+    objectId: text("object_id"),
+    ipAddress: text("ip_address"),
+    userAgent: text("user_agent"),
+    metadata: jsonb("metadata"),
+    createdAt: timestamp("created_at").defaultNow(),
+  },
+  (table) => [
+    index("idx_intake_audit_tenant").on(table.tenantId),
+    index("idx_intake_audit_action").on(table.tenantId, table.action),
+    index("idx_intake_audit_created").on(table.tenantId, table.createdAt),
+  ]
+);
+
+export const insertIntakeAuditEventSchema = createInsertSchema(intakeAuditEvents).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type IntakeAuditEvent = typeof intakeAuditEvents.$inferSelect;
+export type InsertIntakeAuditEvent = z.infer<typeof insertIntakeAuditEventSchema>;
+
+export const intakePolicies = pgTable(
+  "intake_policies",
+  {
+    id: varchar("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    tenantId: varchar("tenant_id")
+      .notNull()
+      .references(() => tenants.id, { onDelete: "cascade" })
+      .unique(),
+    defaultMaxFileSizeMb: integer("default_max_file_size_mb").notNull().default(25),
+    defaultAllowedFileTypes: text("default_allowed_file_types").array(),
+    defaultRetentionDays: integer("default_retention_days"),
+    defaultExpirationHours: integer("default_expiration_hours").notNull().default(72),
+    requirePasswordForLinks: boolean("require_password_for_links").notNull().default(false),
+    autoDeleteExpiredFiles: boolean("auto_delete_expired_files").notNull().default(false),
+    complianceNotice: text("compliance_notice"),
+    createdAt: timestamp("created_at").defaultNow(),
+    updatedAt: timestamp("updated_at").defaultNow(),
+  },
+  (table) => [
+    index("idx_intake_policies_tenant").on(table.tenantId),
+  ]
+);
+
+export const insertIntakePolicySchema = createInsertSchema(intakePolicies).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type IntakePolicy = typeof intakePolicies.$inferSelect;
+export type InsertIntakePolicy = z.infer<typeof insertIntakePolicySchema>;

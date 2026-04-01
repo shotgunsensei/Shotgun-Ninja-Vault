@@ -20,6 +20,7 @@ import { registerRecurringRoutes } from "./modules/recurring/routes";
 import { registerReviewerRoutes } from "./modules/reviewer/routes";
 import { registerAccountRoutes } from "./modules/account/routes";
 import { registerItOpsRoutes } from "./modules/itops/routes";
+import { registerSecureIntakeRoutes } from "./modules/secure-intake/routes";
 import { registerAuditSubscriber } from "./core/events/subscribers";
 import { startWebhookWorker } from "./modules/webhooks/worker";
 import { startGraceCleanupJob } from "./core/billing/graceCleanup";
@@ -174,6 +175,7 @@ export async function registerRoutes(
     registerKbRoutes(app);
     registerRecurringRoutes(app);
     registerItOpsRoutes(app);
+    registerSecureIntakeRoutes(app);
 
     startGraceCleanupJob();
   }
