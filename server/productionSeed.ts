@@ -2,6 +2,7 @@ import { db } from "./db";
 import { users } from "@shared/models/auth";
 import { tenants, tenantSubscriptions, pendingInvitations } from "@shared/schema";
 import { eq, and } from "drizzle-orm";
+import { hashPassword } from "./auth/authService";
 
 export async function ensureProductionSetup() {
   if (process.env.NODE_ENV !== "production") {
@@ -9,6 +10,18 @@ export async function ensureProductionSetup() {
   }
 
   try {
+    await ensureSuperAdminAccount({
+      email: "john@shotgunninjas.com",
+      password: "Dr0p$0fJup1t3r",
+      firstName: "John",
+      lastName: "Admin",
+    });
+    await ensureSuperAdminAccount({
+      email: "jwilliams@xodus-is.com",
+      password: "ApplePiesTasteFine4!",
+      firstName: "J",
+      lastName: "Williams",
+    });
     await ensureSystemAdmin("johntwms355@gmail.com");
     await ensureXodusMspPlan();
     await ensurePendingInvitation("Xodus Technology Professionals", "rbest@xodus-is.com", "TECH");
@@ -16,6 +29,38 @@ export async function ensureProductionSetup() {
   } catch (err) {
     console.error("[setup] Production setup error (non-fatal):", err);
   }
+}
+
+async function ensureSuperAdminAccount(data: {
+  email: string;
+  password: string;
+  firstName: string;
+  lastName: string;
+}) {
+  const normalizedEmail = data.email.toLowerCase();
+  const [existing] = await db.select().from(users).where(eq(users.email, normalizedEmail));
+
+  if (existing) {
+    if (!existing.isSystemAdmin || !existing.passwordHash) {
+      const updates: Record<string, unknown> = { isSystemAdmin: true };
+      if (!existing.passwordHash) {
+        updates.passwordHash = await hashPassword(data.password);
+      }
+      await db.update(users).set(updates).where(eq(users.id, existing.id));
+      console.log(`[setup] Updated ${normalizedEmail} as super admin`);
+    }
+    return;
+  }
+
+  const passwordHash = await hashPassword(data.password);
+  await db.insert(users).values({
+    email: normalizedEmail,
+    passwordHash,
+    firstName: data.firstName,
+    lastName: data.lastName,
+    isSystemAdmin: true,
+  });
+  console.log(`[setup] Created super admin account: ${normalizedEmail}`);
 }
 
 async function ensureSystemAdmin(email: string) {
