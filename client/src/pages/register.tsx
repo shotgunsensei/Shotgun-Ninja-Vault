@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Loader2, UserPlus, Check, X } from "lucide-react";
 import { queryClient } from "@/lib/queryClient";
-import { authFetch } from "@/lib/csrf";
+import { authFetch, clearCsrfToken } from "@/lib/csrf";
 import logoImage from "@assets/ShotgunNinjaVaulticon_1770412982737.png";
 
 function PasswordStrength({ password }: { password: string }) {
@@ -85,6 +85,7 @@ export default function RegisterPage() {
         return;
       }
 
+      clearCsrfToken();
       queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
       queryClient.invalidateQueries({ queryKey: ["/api/tenant"] });
       setLocation("/");

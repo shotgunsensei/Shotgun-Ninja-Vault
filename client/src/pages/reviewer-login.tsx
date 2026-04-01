@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Loader2, LogIn } from "lucide-react";
 import { queryClient } from "@/lib/queryClient";
+import { authFetch, clearCsrfToken } from "@/lib/csrf";
 
 export default function ReviewerLoginPage() {
   const [, setLocation] = useLocation();
@@ -20,12 +21,11 @@ export default function ReviewerLoginPage() {
     setLoading(true);
 
     try {
-      const res = await fetch("/api/reviewer-login", {
+      const res = await authFetch("/api/reviewer-login", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username, password }),
-        credentials: "include",
       });
+      clearCsrfToken();
 
       if (!res.ok) {
         const data = await res.json();
