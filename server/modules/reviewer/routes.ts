@@ -84,10 +84,15 @@ export function registerReviewerRoutes(app: Express): void {
     try {
       await ensureReviewerSetup();
 
-      req.session.userId = REVIEWER_USER_ID;
-      req.session.mfaPending = false;
-
-      res.json({ success: true });
+      req.session.regenerate((err) => {
+        if (err) {
+          console.error("[reviewer] Session regeneration error:", err);
+          return res.status(500).json({ message: "Login failed" });
+        }
+        req.session.userId = REVIEWER_USER_ID;
+        req.session.mfaPending = false;
+        req.session.save(() => res.json({ success: true }));
+      });
     } catch (error) {
       console.error("[reviewer] Setup error:", error);
       res.status(500).json({ message: "Setup failed" });
