@@ -65,14 +65,10 @@ export default function LandingPage() {
             className="absolute inset-0 bg-cover bg-center bg-no-repeat"
             style={{ backgroundImage: `url(${heroImage})` }}
           />
-          <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-transparent to-black/70" />
+          <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black/80" />
           <div className="relative z-10 flex flex-col min-h-[480px] sm:min-h-[540px] px-6">
             <div className="flex-1" />
             <div className="max-w-3xl mx-auto text-center pb-10 sm:pb-14">
-              <p className="text-sm sm:text-base text-white/80 max-w-xl mx-auto mb-6 drop-shadow-lg">
-                The multi-tenant platform for MSPs, IT teams, and consultants to
-                manage tickets, track time, send invoices, and store evidence.
-              </p>
               <div className="flex flex-wrap items-center justify-center gap-3">
                 <Button size="lg" asChild data-testid="button-get-started">
                   <a href="/register">
@@ -80,13 +76,13 @@ export default function LandingPage() {
                     <ArrowRight className="w-4 h-4 ml-1" />
                   </a>
                 </Button>
-                <Button size="lg" variant="outline" asChild className="backdrop-blur-sm bg-white/5 border-white/20 text-white">
+                <Button size="lg" variant="outline" asChild className="backdrop-blur-sm bg-white/5 border-white/20 text-white hover:bg-white/15">
                   <a href="#features">Learn More</a>
                 </Button>
               </div>
-              <div className="flex items-center justify-center gap-4 mt-5 text-xs text-white/50">
+              <div className="flex items-center justify-center gap-4 mt-5 text-xs text-white/60">
                 <span>Free plan available</span>
-                <span className="w-1 h-1 rounded-full bg-white/30" />
+                <span className="w-1 h-1 rounded-full bg-white/40" />
                 <span>No credit card required</span>
               </div>
             </div>
