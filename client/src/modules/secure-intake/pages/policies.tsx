@@ -102,7 +102,7 @@ export default function IntakePoliciesPage() {
           <CardContent className="space-y-4">
             <div className="space-y-2">
               <Label>Default Max File Size (MB)</Label>
-              <Input type="number" min={1} max={500} value={form.defaultMaxFileSizeMb} onChange={(e) => setForm({ ...form, defaultMaxFileSizeMb: parseInt(e.target.value) || 25 })} data-testid="input-policy-max-size" />
+              <Input type="number" min={1} max={5120} value={form.defaultMaxFileSizeMb} onChange={(e) => setForm({ ...form, defaultMaxFileSizeMb: parseInt(e.target.value) || 25 })} data-testid="input-policy-max-size" />
             </div>
             <div className="space-y-2">
               <Label>Default Allowed File Types</Label>

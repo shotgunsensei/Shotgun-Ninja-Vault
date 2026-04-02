@@ -144,7 +144,7 @@ export default function IntakeSpacesPage() {
                 </div>
                 <div className="space-y-2">
                   <Label>Max File Size (MB)</Label>
-                  <Input type="number" min={1} max={500} value={form.maxFileSizeMb} onChange={(e) => setForm({ ...form, maxFileSizeMb: parseInt(e.target.value) || 25 })} data-testid="input-space-max-size" />
+                  <Input type="number" min={1} max={5120} value={form.maxFileSizeMb} onChange={(e) => setForm({ ...form, maxFileSizeMb: parseInt(e.target.value) || 25 })} data-testid="input-space-max-size" />
                 </div>
                 <div className="space-y-2">
                   <Label>Allowed File Types</Label>

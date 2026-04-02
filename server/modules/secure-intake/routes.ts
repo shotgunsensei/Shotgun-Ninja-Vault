@@ -14,7 +14,7 @@ import { requireFeature, checkLimit, getTenantPlanLimits } from "../../core/bill
 import { emitEvent } from "../../core/events/helpers";
 import type { PlanLimits } from "@shared/schema";
 
-const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 100 * 1024 * 1024 } });
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 * 1024 } });
 
 const uploadLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -128,7 +128,7 @@ export function registerSecureIntakeRoutes(app: Express) {
         slug: z.string().min(1).max(100).regex(/^[a-z0-9-]+$/),
         description: z.string().max(500).optional(),
         allowedFileTypes: z.array(z.string().max(20)).max(50).optional(),
-        maxFileSizeMb: z.number().min(1).max(500).optional(),
+        maxFileSizeMb: z.number().min(1).max(5120).optional(),
         requireMetadata: z.boolean().optional(),
         metadataFields: z.any().optional(),
         retentionDays: z.number().min(1).optional().nullable(),
@@ -156,7 +156,7 @@ export function registerSecureIntakeRoutes(app: Express) {
         name: z.string().min(1).max(100).optional(),
         description: z.string().max(500).optional(),
         allowedFileTypes: z.array(z.string().max(20)).max(50).optional(),
-        maxFileSizeMb: z.number().min(1).max(500).optional(),
+        maxFileSizeMb: z.number().min(1).max(5120).optional(),
         requireMetadata: z.boolean().optional(),
         metadataFields: z.any().optional(),
         retentionDays: z.number().min(1).optional().nullable(),
@@ -409,7 +409,7 @@ export function registerSecureIntakeRoutes(app: Express) {
     try {
       const { tenantId, userId } = (req as any).tenantCtx;
       const body = z.object({
-        defaultMaxFileSizeMb: z.number().min(1).max(500).optional(),
+        defaultMaxFileSizeMb: z.number().min(1).max(5120).optional(),
         defaultAllowedFileTypes: z.array(z.string().max(20)).max(50).optional().nullable(),
         defaultRetentionDays: z.number().min(1).max(3650).optional().nullable(),
         defaultExpirationHours: z.number().min(1).max(8760).optional(),
